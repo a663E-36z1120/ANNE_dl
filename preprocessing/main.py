@@ -26,6 +26,8 @@ def integrate_data(subject_id):
                      usecols=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
     n = len(ecg) // (SAMP_RATE*WINDOW_LEN) * (SAMP_RATE*WINDOW_LEN)
 
+    plot_ecg(ecg, subject_id)
+
     # Features
     ecg = np.reshape(ecg[:n], (-1, SAMP_RATE*WINDOW_LEN, 1))
     ppg = np.reshape(ppg[:n], (-1, SAMP_RATE*WINDOW_LEN, 1))
@@ -43,6 +45,25 @@ def integrate_data(subject_id):
     t = np.reshape(t, (-1, len(t)))
 
     return X, t
+
+
+def plot_ecg(anne, subject_id, start=0, stop=10000):
+    """
+    Plot ANNE ecg signal against PSG ecg signals for visualizing the result of alignment
+    """
+    # Read PSG edf
+    signals, signal_headers, header = highlevel.read_edf(
+        f"{DATA_DIR}/{subject_id}/PSG.edf")
+    psg_samp_rate = int(signal_headers[7]["sample_rate"])
+
+    fig, axs = plt.subplots(2)
+    axs[0].plot(np.linspace(start, stop, (stop-start)*SAMP_RATE), anne[start*SAMP_RATE:stop*SAMP_RATE], label="ANNE")
+    axs[1].plot(np.linspace(start, stop, (stop-start)*psg_samp_rate), signals[7][start*psg_samp_rate:stop*psg_samp_rate])
+    plt.show()
+
+    pass
+
+
 
 
 def plot_window(X, index=0):
