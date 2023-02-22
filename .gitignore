@@ -1,4 +1,4 @@
-
+.idea
 .idea/ANNE_dl.iml
 .idea/inspectionProfiles/profiles_settings.xml
 .idea/inspectionProfiles/Project_Default.xml
@@ -6,3 +6,4 @@
 .idea/modules.xml
 .idea/other.xml
 .idea/vcs.xml
+.gitignore

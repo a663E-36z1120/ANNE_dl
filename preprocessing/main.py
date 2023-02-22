@@ -17,7 +17,7 @@ def integrate_data(subject_id):
     n is the number of 30-second windows in the time-series data set
     s the number of signal samples in each 30-second window (s = sample_rate * 30 seconds)
     c is the number of signal sources, preliminarirly:
-    0: ECG  1: PPG  2,3,4: x,y,z accelerometer  5: ENMO 6: z-angle  7: temperature
+    0: ECG  1: PPG  2,3,4: x,y,z accelerometer  5: ENMO 6: z-angle  7: chest temperature
     """
     # Read raw signals from csv
     index, time, ecg, ppg, x_acc, y_acc, z_acc, enmo, z_angle, temp \
