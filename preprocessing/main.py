@@ -46,8 +46,9 @@ def integrate_data(subject_id):
 
     return X, t
 
+t = 1200
 
-def plot_ecg(anne, subject_id, start=0, stop=10000):
+def plot_ecg(anne, subject_id, start=8440, stop=8480, anne_shift=-4):
     """
     Plot ANNE ecg signal against PSG ecg signals for visualizing the result of alignment
     """
@@ -57,8 +58,11 @@ def plot_ecg(anne, subject_id, start=0, stop=10000):
     psg_samp_rate = int(signal_headers[7]["sample_rate"])
 
     fig, axs = plt.subplots(2)
-    axs[0].plot(np.linspace(start, stop, (stop-start)*SAMP_RATE), anne[start*SAMP_RATE:stop*SAMP_RATE], label="ANNE")
+    axs[0].plot(np.linspace(start, stop, (stop-start)*SAMP_RATE), anne[(start+anne_shift)*SAMP_RATE:(stop+anne_shift)*SAMP_RATE])
+    axs[0].title.set_text("ANNE")
     axs[1].plot(np.linspace(start, stop, (stop-start)*psg_samp_rate), signals[7][start*psg_samp_rate:stop*psg_samp_rate])
+    axs[1].title.set_text("PSG")
+
     plt.show()
 
     pass
@@ -78,5 +82,5 @@ def plot_window(X, index=0):
 
 
 if __name__ == "__main__":
-    X, t = integrate_data(132)
+    X, t = integrate_data(255)
     plot_window(X, index=80)
