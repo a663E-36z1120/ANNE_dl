@@ -54,8 +54,8 @@ def ccovf(x, y, bound, adjusted=True, demean=True, fft=True):
     method = "fft" if fft else "direct"
     original = correlate(xo, yo, "full", method=method)[n - 1 :] / d
     original_length = len(original)
-    bounded = original[original_length//2 - bound + 1:original_length//2 - bound + 1]
-    return bounded
+    bounded = original[original_length//2 - round(bound*n) : original_length//2 + round(bound*n) + 1]
+    return original
 
 def equalize_array_size(array1, array2):
     '''
@@ -168,25 +168,25 @@ def phase_align(reference, target, roi, bound, res=100):
 
     # often found this method to be more accurate then the way below
     return np.argmax(cc) * mod * (1. / res)
-
+    #
     # interpolate data onto a higher resolution grid
-    x, r1 = highres(reference[ROI], kind='linear', res=res)
-    x, r2 = highres(target[ROI], kind='linear', res=res)
-
-    # subtract off mean
-    r1 -= r1.mean()
-    r1 -= r2.mean()
-
-    # compute the phase-only correlation function
-    product = np.fft.fft(r1) * np.fft.fft(r2).conj()
-    cc = np.fft.fftshift(np.fft.ifft(product))
-
-    # manipulate the output from np.fft
-    l = reference[ROI].shape[0]
-    shifts = np.linspace(-0.5 * l, 0.5 * l, l * res)
-
-    # plt.plot(shifts,cc,'k-'); plt.show()
-    return shifts[np.argmax(cc.real)]
+    # x, r1 = highres(reference[ROI], kind='linear', res=res)
+    # x, r2 = highres(target[ROI], kind='linear', res=res)
+    #
+    # # subtract off mean
+    # r1 -= r1.mean()
+    # r1 -= r2.mean()
+    #
+    # # compute the phase-only correlation function
+    # product = np.fft.fft(r1) * np.fft.fft(r2).conj()
+    # cc = np.fft.fftshift(np.fft.ifft(product))
+    #
+    # # manipulate the output from np.fft
+    # l = reference[ROI].shape[0]
+    # shifts = np.linspace(-0.5 * l, 0.5 * l, l * res)
+    #
+    # # plt.plot(shifts,cc,'k-'); plt.show()
+    # return shifts[np.argmax(cc.real)]
 
 
 def highres(y, kind='cubic', res=100):
