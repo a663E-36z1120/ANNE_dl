@@ -1,10 +1,61 @@
-#
 import numpy as np
 from scipy.optimize import minimize
 from scipy.interpolate import interp1d
 from scipy.ndimage.interpolation import shift
-from statsmodels.tsa.stattools import ccovf
+from scipy.signal import correlate
+from statsmodels.tools.validation import (
+    array_like,
+    bool_like,
+    dict_like,
+    float_like,
+    int_like,
+    string_like,
+)
 
+def ccovf(x, y, bound, adjusted=True, demean=True, fft=True):
+    """
+    Calculate the crosscovariance between two series.
+
+    Parameters
+    ----------
+    x, y : array_like
+       The time series data to use in the calculation.
+    adjusted : bool, optional
+       If True, then denominators for crosscovariance is n-k, otherwise n.
+    demean : bool, optional
+        Flag indicating whether to demean x and y.
+    fft : bool, default True
+        If True, use FFT convolution.  This method should be preferred
+        for long time series.
+
+    Returns
+    -------
+    ndarray
+        The estimated crosscovariance function.
+    """
+    x = array_like(x, "x")
+    y = array_like(y, "y")
+    adjusted = bool_like(adjusted, "adjusted")
+    demean = bool_like(demean, "demean")
+    fft = bool_like(fft, "fft", optional=False)
+
+    n = len(x)
+    if demean:
+        xo = x - x.mean()
+        yo = y - y.mean()
+    else:
+        xo = x
+        yo = y
+    if adjusted:
+        d = np.arange(n, 0, -1)
+    else:
+        d = n
+
+    method = "fft" if fft else "direct"
+    original = correlate(xo, yo, "full", method=method)[n - 1 :] / d
+    original_length = len(original)
+    bounded = original[original_length//2 - bound + 1:original_length//2 - bound + 1]
+    return bounded
 
 def equalize_array_size(array1, array2):
     '''
@@ -79,7 +130,7 @@ def chisqr_align(reference, target, roi=None, order=1, init=0.1, bound=1):
     return result.x[0] + int(np.floor(dif_length / 2))
 
 
-def phase_align(reference, target, roi, res=100):
+def phase_align(reference, target, roi, bound, res=100):
     '''
     Cross-correlate data within region of interest at a precision of 1./res
     if data is cross-correlated at native resolution (i.e. res=1) this function
@@ -106,11 +157,11 @@ def phase_align(reference, target, roi, res=100):
     r2 -= r2.mean()
 
     # compute cross covariance
-    cc = ccovf(r1, r2, demean=False, adjusted=False)
+    cc = ccovf(r1, r2, bound, demean=False, adjusted=False)
 
     # determine if shift if positive/negative
     if np.argmax(cc) == 0:
-        cc = ccovf(r2, r1, demean=False, adjusted=False)
+        cc = ccovf(r2, r1, bound, demean=False, adjusted=False)
         mod = -1
     else:
         mod = 1

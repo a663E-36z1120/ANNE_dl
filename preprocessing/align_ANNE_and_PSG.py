@@ -38,7 +38,7 @@ def align(patientid, ANNE, PSG):
     ANNE_after_low_pass_filter = butter_lowpass_filter(ANNE_align_segment, cutoff, fs, order)
     PSG_after_low_pass_filter = butter_lowpass_filter(PSG_signal_segment, cutoff, fs, order)
 
-    phase_shift_for_low_passed_data = phase_align(ANNE_after_low_pass_filter, PSG_after_low_pass_filter, (0, 10000))
+    phase_shift_for_low_passed_data = phase_align(ANNE_after_low_pass_filter, PSG_after_low_pass_filter, (0, 10000), 250)
     print("patient", patientid, "phase shift value to align is", phase_shift_for_low_passed_data / sample_rate)
 
     # _, axis = plt.subplots(1, 2)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
             # downsample PSG ecg from 256 hz to 25 hz
             PSG_ECG_resample = signal.resample_poly(PSG_ECG, 25, 256)
-    
+
             shift_time_in_sec = align(patient_id, ANNE_ECG, PSG_ECG_resample) / 25
             shift_dict[patient_id] = shift_time_in_sec
             print(shift_time_in_sec)
