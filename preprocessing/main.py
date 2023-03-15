@@ -48,7 +48,7 @@ def integrate_data(subject_id):
 
 t = 1200
 
-def plot_ecg(anne, subject_id, start=8440, stop=8480, anne_shift=-4):
+def plot_ecg(anne, subject_id, start=8440, stop=8480, anne_shift=-7):
     """
     Plot ANNE ecg signal against PSG ecg signals for visualizing the result of alignment
     """
@@ -82,5 +82,5 @@ def plot_window(X, index=0):
 
 
 if __name__ == "__main__":
-    X, t = integrate_data(255)
+    X, t = integrate_data(132)
     plot_window(X, index=80)

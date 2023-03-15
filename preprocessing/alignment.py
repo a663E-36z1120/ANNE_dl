@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt, lfilter
 from pyedflib import highlevel
 from scipy import signal
 import os
@@ -16,16 +16,22 @@ def butter_lowpass_filter(data, cutoff, fs, order):
     y = filtfilt(b, a, data)
     return y
 
+def butter_bandpass(lowcut, highcut, fs, order=5):
+    return butter(order, [lowcut, highcut], fs=fs, btype='band')
+
+def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
+    b, a = butter_bandpass(lowcut, highcut, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
 
 def align(patientid, ANNE, PSG):
     # fs = sample_rate  # sample rate, Hz
-    # cutoff = 4  # desired cutoff frequency of the filter, Hz
     # order = 2  # sin wave can be approx represented as quadratic
-    #
-    # ANNE_filt = butter_lowpass_filter(ANNE, cutoff, fs, order)
-    # PSG_filt = butter_lowpass_filter(PSG, cutoff, fs, order)
 
-    ANNE_filt = ANNE
+    # ANNE_filt = butter_bandpass_filter(ANNE, 0.6, 2, fs, order)
+    PSG_filt = butter_bandpass_filter(PSG, 0.05, 1, fs, order)
+
+    # ANNE_filt = ANNE
     PSG_filt = PSG
 
     corr = signal.correlate(ANNE_filt, PSG_filt)
@@ -34,7 +40,7 @@ def align(patientid, ANNE, PSG):
     len_corr = len(corr)
 
     center = np.where(lags == 0)[0][0]
-    radius = 120
+    radius = 30
 
     corr_bounded = corr[center - sample_rate * radius:center + sample_rate * radius]
     lags_bounded = lags[center - sample_rate * radius:center + sample_rate * radius]
@@ -45,7 +51,17 @@ def align(patientid, ANNE, PSG):
 
     wr = 15  # window radius around each artifact to generate the plot for
 
-    artifacts = [np.argmax(PSG_filt), np.argmax(ANNE_filt), len(ANNE_filt) // 2]
+    min_len = min(len(PSG_filt), len(ANNE_filt))
+
+    diff = np.abs(PSG_filt[:min_len] - ANNE_filt[:min_len])
+
+    artifact0 = np.argmax(diff[:min_len // 5])
+    artifact1 = min_len // 5 + np.argmax(diff[min_len // 5: min_len // 5 * 2])
+    artifact2 = min_len // 5 * 2 + np.argmax(diff[min_len // 5 * 2: min_len // 5 * 3])
+    artifact3 = min_len // 5 * 3 + np.argmax(diff[min_len // 5 * 3: min_len // 5 * 4])
+    artifact4 = min_len // 5 * 4 + np.argmax(diff[min_len // 5 * 4:])
+
+    artifacts = [artifact0, artifact1, artifact2, artifact3, artifact4]
 
     for i in range(len(artifacts)):
         fig, axs = plt.subplots(2)
@@ -58,6 +74,33 @@ def align(patientid, ANNE, PSG):
         axs[1].title.set_text("PSG")
         plt.savefig(f"{DATA_DIR}/alignment_qc/{patientid}_{i}.png")
         plt.close()
+
+    anne_len = len(ANNE_filt)
+    psg_len = len(PSG_filt)
+    n = 3
+
+    fig_, axs_ = plt.subplots(n)
+
+    for i in range(n):
+        corr_ = signal.correlate(ANNE_filt[anne_len//n*i:anne_len//n*(i+1)], PSG_filt[psg_len//n*i:psg_len//n*(i+1)])
+        lags_ = signal.correlation_lags(psg_len//n, anne_len//n)
+        corr_ /= np.max(corr_)
+
+        center_ = np.where(lags_ == 0)[0][0]
+
+        corr_bounded_ = corr_[center_ - sample_rate * radius:center_ + sample_rate * radius]
+        lags_bounded_ = lags_[center_ - sample_rate * radius:center_ + sample_rate * radius]
+        axs_[i].plot(lags_bounded_ / 25, corr_bounded_)
+        axs_[i].plot(lags_bounded / 25, corr_bounded, alpha=0.5)
+        axs_[i].title.set_text(f"Segment {i}")
+
+    plt.savefig(f"{DATA_DIR}/alignment_qc/{patientid}_seg_corr.png")
+    plt.close()
+
+    plt.plot(lags_bounded / 25, corr_bounded)
+    plt.savefig(f"{DATA_DIR}/alignment_qc/{patientid}_corr.png")
+
+    plt.close()
 
     return sample_lag
 
@@ -86,9 +129,9 @@ if __name__ == "__main__":
             shift_time_in_sec = align(patient_id, ANNE_ECG, PSG_ECG_resample) / 25
             shift_dict[patient_id] = shift_time_in_sec
             print(f"{shift_time_in_sec}\n")
-        except:
+        except Exception as e:
             print("something went wrong")
+            print(str(e))
 
     print(shift_dict)
-    json.dump(shift_dict, open("shift2.json", 'w'))
-#
+    json.dump(shift_dict, open("shift3.json", 'w'))
