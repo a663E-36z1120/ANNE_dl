@@ -146,8 +146,8 @@ def evaluate(model, loader, criterion):
 
 if __name__ == "__main__":
     # Load data:
-    X1, t1 = integrate_data(132)
-    X2, t2 = integrate_data(150)
+    X1, t1 = integrate_data(132, -7.64)
+    X2, t2 = integrate_data(135, -7.64)
     train_dataset = ANNEDataset(X1, t1.transpose())
     val_dataset = ANNEDataset(X2, t2.transpose())
 
