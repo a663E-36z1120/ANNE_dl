@@ -19,7 +19,7 @@ def integrate_data(subject_id, shift=0):
     :return: X: 3d tensor in the shape of (n, c, s), where:
     n is the number of 30-second windows in the time-series data set
     c is the number of signal sources, preliminarirly:
-        0: ECG  1: PPG  2,3,4: x,y,z accelerometer  5: ENMO 6: z-angle  7: chest temperature
+        0: ECG  1: PPG  2,3,4: x,y,z accelerometer  5: ENMO 6: z-angle  7: chest temperature 8: heart rate
     s the number of signal samples in each 30-second window (s = sample_rate * 30 seconds)
     """
     # Read raw signals from csv
@@ -28,6 +28,13 @@ def integrate_data(subject_id, shift=0):
                      skiprows=1, unpack=True,
                      usecols=(0, 1, 2, 3, 4, 5, 6, 7, 8, 9))
     n = len(ecg) // (SAMP_RATE*WINDOW_LEN) * (SAMP_RATE*WINDOW_LEN)
+
+    # Preliminary engineered features from ANNE.edf
+    signals, signal_headers, header = highlevel.read_edf(
+        f"{DATA_DIR}/{subject_id}/ANNE.edf")
+    psg_samp_rate = int(signal_headers[7]["sample_rate"])
+
+    heart_rate = np.float32(np.repeat(signals[6], 25)[:len(ecg)])
 
     # targets
     t = np.loadtxt(f"{DATA_DIR}/{subject_id}/sleepLabel.csv", dtype="int64", delimiter=",", usecols=1,
@@ -57,9 +64,17 @@ def integrate_data(subject_id, shift=0):
     enmo = enmo[n_samples_left:-n_samples_right]
     z_angle = z_angle[n_samples_left:-n_samples_right]
     temp = temp[n_samples_left:-n_samples_right]
+    heart_rate = heart_rate[n_samples_left:-n_samples_right]
 
     n = n - n_samples_left - n_samples_right
 
+    # Normalization and standardization
+    ecg = (ecg - ecg.mean()) / np.sqrt(ecg.var())
+    ppg = (ppg - ppg.mean()) / np.sqrt(ppg.var())
+    temp = (temp-temp.mean()) / np.sqrt(temp.var())
+
+    # z_angle = (z_angle + 90) / 180
+    # heart_rate = heart_rate / np.sqrt(heart_rate.var())
 
     # Features
     ecg = np.reshape(ecg[:n], (-1, 1, SAMP_RATE*WINDOW_LEN))
@@ -70,12 +85,13 @@ def integrate_data(subject_id, shift=0):
     enmo = np.reshape(enmo[:n], (-1, 1, SAMP_RATE*WINDOW_LEN))
     z_angle = np.reshape(z_angle[:n], (-1, 1, SAMP_RATE*WINDOW_LEN))
     temp = np.reshape(temp[:n], (-1, 1, SAMP_RATE*WINDOW_LEN))
+    heart_rate = np.reshape(heart_rate[:n], (-1, 1, SAMP_RATE*WINDOW_LEN))
 
     t = np.where((t == 2) | (t == 3), 1, t)
     t = np.where(t == 4, 2, t)
 
     t = np.reshape(t, (-1, len(t)))
-    X = np.concatenate((ecg, ppg, x_acc, y_acc, z_acc, enmo, z_angle, temp), axis=1)
+    X = np.concatenate((ecg, ppg, enmo, z_angle, temp, heart_rate), axis=1)
 
     return X, t
 
@@ -98,6 +114,7 @@ def plot_ecg(anne, subject_id, start=0, stop=4200, anne_shift=0, windows_dropped
     plt.show()
 
     pass
+
 
 def plot_acc(anne, subject_id, start=0, stop=4200, anne_shift=0, windows_dropped=0):
     """

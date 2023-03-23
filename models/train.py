@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -6,10 +7,12 @@ from preprocessing.main import integrate_data
 from crnn import CRNN
 from lstm import LSTM
 from dataloader import ANNEDataset
+import json
+
+
 
 
 def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_every=10):
-
     # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     criterion = nn.CrossEntropyLoss()
     train_accs = []
@@ -39,7 +42,7 @@ def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_e
             inputs = inputs.to(device)
             labels = labels.to(device)
             # inputs = inputs.view(inputs.size(0), -1)  # Flatten input from [batch_size, 1, 28, 28] to [batch_size, 784]
-            pred = model(inputs, lengths)
+            pred = model(inputs)
             xentropy_loss = criterion(pred, labels)
             xentropy_loss.backward()
 
@@ -56,7 +59,6 @@ def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_e
         test_acc, test_loss = evaluate(model, test_loader, criterion, device)
         if epoch % print_every == 0:
             print("Epoch {}, Train acc: {:.2f}%, Test acc: {:.2f}%".format(epoch, accuracy * 100, test_acc * 100))
-
 
         train_accs.append(accuracy)
         test_accs.append(test_acc)
@@ -76,7 +78,7 @@ def evaluate(model, loader, criterion, device):
             inputs = inputs.to(device)
             labels = labels.to(device)
             # inputs = inputs.view(inputs.size(0), -1)
-            pred = model(inputs, lengths)
+            pred = model(inputs)
             xentropy_loss = criterion(pred, labels)
             val_loss += xentropy_loss.item()
 
@@ -117,25 +119,71 @@ def plot_act_histograms(act_list, epoch, init=False):
 if __name__ == "__main__":
     # Check gpu availability
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    torch.cuda.empty_cache()
     # Load data:
-    X1, t1 = integrate_data(132, -7.64)
-    X2, t2 = integrate_data(135, -6.84)
+    validation_id_list = [135, 157, 248, 137, 171, 297]
+
+    X1 = None
+    t1 = None
+    X2 = None
+    t2 = None
+
+    with open('../preprocessing/white_list.json') as json_file:
+        white_list = json.load(json_file)
+
+    # with open('../preprocessing/grey_list.json') as json_file:
+    #     grey_list = json.load(json_file)
+    # white_list.update(grey_list)
+
+    for id in white_list:
+        try:
+            X, t = integrate_data(int(id), white_list[id])
+            if int(id) not in validation_id_list:
+                if X1 is None:
+                    X1 = X
+                    t1 = t
+                else:
+                    X1 = np.concatenate((X1, X), axis=0)
+                    t1 = np.concatenate((t1, t), axis=1)
+            else:
+                if X2 is None:
+                    X2 = X
+                    t2 = t
+                else:
+                    X2 = np.concatenate((X2, X), axis=0)
+                    t2 = np.concatenate((t2, t), axis=1)
+        except:
+            print(f"Something went wrong for id {id}")
+
     # Build model
-    model = CRNN(num_classes=3, in_channels=8, model='gru')
+    model = CRNN(num_classes=3, in_channels=X.shape[1], model='gru')
 
     # Initialize dataloaders
     train_dataset = ANNEDataset(X1, t1, device)
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
+    train_dataloader = DataLoader(dataset=train_dataset, batch_size=1024)
     val_dataset = ANNEDataset(X2, t2, device)
-    val_dataloader = DataLoader(dataset=val_dataset, batch_size=64, shuffle=True)
+    val_dataloader = DataLoader(dataset=val_dataset)
+
+    # Visualize model
+    dummy_input = torch.randn(1024, 6, 25*30)
+    torch.onnx.export(model, dummy_input, "./model.onnx")
 
     # Train model:
-    # Define optimizer: Choose SGD for now
-    learning_rate = 0.01
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=0.9)
+    learning_rate = 0.0001
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
     # Run the training loop
-    train_accs, test_accs, train_losses, test_losses = train_model(model, optimizer, train_dataloader, val_dataloader, epochs=200,
+    train_accs, test_accs, train_losses, test_losses = train_model(model, optimizer, train_dataloader, val_dataloader,
+                                                                   epochs=350,
                                                                    print_every=2)
 
-    pass
+    plt.plot(train_losses)
+    plt.plot(test_losses)
+    plt.title("loss")
+    plt.show()
+
+    plt.plot(train_accs)
+    plt.plot(test_accs)
+    plt.title("accuracy")
+    plt.show()
