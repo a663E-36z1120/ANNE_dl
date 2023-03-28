@@ -10,15 +10,8 @@ from dataloader import ANNEDataset
 import json
 
 
-
-
 def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_every=10):
     # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    criterion = nn.CrossEntropyLoss()
-    train_accs = []
-    test_accs = []
-    train_losses = []
-    test_losses = []
 
     # Using GPUs in PyTorch is pretty straightforward
     if torch.cuda.is_available():
@@ -27,6 +20,15 @@ def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_e
         device = torch.device("cuda")
     else:
         device = "cpu"
+
+    xentropy_weight = torch.tensor([1/30**1.25, 1/56**1.25, 1/14**1.25]).to(device)
+
+
+    criterion = nn.CrossEntropyLoss(weight=xentropy_weight)
+    train_accs = []
+    test_accs = []
+    train_losses = []
+    test_losses = []
 
     # Move the model to GPU, if available
     model.to(device)
@@ -175,8 +177,10 @@ if __name__ == "__main__":
 
     # Run the training loop
     train_accs, test_accs, train_losses, test_losses = train_model(model, optimizer, train_dataloader, val_dataloader,
-                                                                   epochs=350,
+                                                                   epochs=240,
                                                                    print_every=2)
+
+    torch.save(model, "./model.pt")
 
     plt.plot(train_losses)
     plt.plot(test_losses)

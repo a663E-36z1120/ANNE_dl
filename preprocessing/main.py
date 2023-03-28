@@ -140,9 +140,9 @@ def plot_window(X, index=0):
     """
     Plot the index-th 30 second window in the data tensor X
     """
-    fig, axs = plt.subplots(X.shape[-1])
+    fig, axs = plt.subplots(X.shape[1])
     for i in range(len(axs)):
-        arr = X[index, :, i]
+        arr = X[index, i, :]
         axs[i].plot(arr)
     plt.show()
 

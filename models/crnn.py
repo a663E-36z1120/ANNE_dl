@@ -1,5 +1,7 @@
 import torch.nn as nn
 import torch
+torch.manual_seed(3407)
+
 
 # TODO: Add more residual for recurrent layers
 # TODO: Plot confusion matrix
