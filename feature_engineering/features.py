@@ -21,18 +21,24 @@ def ecg_pwr_sptr(ecg):
 
 
 def ecg_pwr_sptr_scl(ecg):
-    return np.var(ecg_pwr_sptr(ecg))
+    return np.var(ecg_pwr_sptr(np.squeeze(ecg)), axis=-1)
 
 
 def hrv(ecg):
-    power = ecg_pwr_sptr(ecg) ** 2
-    lf_range = np.where((0.04 <= freq) & (freq >= 0.15), power, 0)
-    lf = np.sum(lf_range)
 
-    hf_range = np.where((0.15 <= freq) & (freq >= 0.4), power, 0)
-    hf = np.sum(hf_range)
+    hrvs = np.empty(ecg.shape[0])
 
-    return lf / hf
+    for i in range(len(ecg)):
+
+        power = abs(ecg_pwr_sptr(ecg[i])) ** 2
+        lf_range = np.where((0.04 <= freq) & (freq >= 0.15), power, 0)
+        lf = np.sum(lf_range)
+
+        hf_range = np.where((0.15 <= freq) & (freq >= 0.4), power, 0)
+        hf = np.sum(hf_range)
+        hrvs[i] = lf / hf
+
+    return hrvs
 
 
 def detrend(x, y, degree=5):
@@ -57,11 +63,11 @@ def ppg_pwr_sptr(ppg):
 
 
 def ppg_pwr_sptr_scl(ppg):
-    return stats.skew(ppg_pwr_sptr(ppg))
+    return stats.skew(ppg_pwr_sptr(np.squeeze(ppg)), axis=-1)
 
 
 def hr_sclr(hr):
-    return stats.skew(hr)
+    return stats.skew(hr, axis=-1)
 
 
 def acc_pwr_sptr(acc):
@@ -72,7 +78,7 @@ def acc_pwr_sptr(acc):
 
 
 def acc_pwr_sptr_scl(acc):
-    return np.var(acc_pwr_sptr(acc))
+    return np.var(acc_pwr_sptr(np.squeeze(acc)), axis=-1)
 
 
 def z_angle_pwr_sptr(z_angle):
@@ -83,12 +89,12 @@ def z_angle_pwr_sptr(z_angle):
 
 
 def zangle_pwr_sptr_scl(zangle):
-    return stats.skew(z_angle_pwr_sptr(zangle))
+    return stats.skew(z_angle_pwr_sptr(np.squeeze(zangle)), axis=-1)
 
 
 def enmo_scl(enmo):
-    return stats.kurtosis(enmo)
+    return stats.kurtosis(enmo, axis=-1)
 
 
 def temp_scl(temp):
-    return np.mean(temp)
+    return np.mean(temp, axis=-1)
