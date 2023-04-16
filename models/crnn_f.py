@@ -7,7 +7,7 @@ torch.manual_seed(42)
 # TODO: Plot confusion matrix
 
 class CRNN(nn.Module):
-    def __init__(self, num_classes, in_channels, in_channels_f, in_channels_s, model='rnn'):
+    def __init__(self, num_classes, in_channels_f , in_channels, model='rnn'):
         super(CRNN, self).__init__()
 
         n_slope = 0.01
@@ -48,23 +48,23 @@ class CRNN(nn.Module):
 
         # Recurrent layers:
         if model == 'lstm':
-            self.rnn = nn.LSTM(input_size=12+in_channels_s, hidden_size=8, num_layers=1,
+            self.rnn = nn.LSTM(input_size=12, hidden_size=6, num_layers=1,
                                bidirectional=True)
         elif model == 'gru':
-            self.rnn = nn.GRU(input_size=12+in_channels_s, hidden_size=8, num_layers=1,
+            self.rnn = nn.GRU(input_size=12, hidden_size=6, num_layers=1,
                               bidirectional=True)
         elif model == 'rnn':
-            self.rnn = nn.RNN(input_size=12+in_channels_s, hidden_size=8, num_layers=1,
+            self.rnn = nn.RNN(input_size=12, hidden_size=6, num_layers=1,
                               bidirectional=True)
         else:
             raise Exception("model is not one of 'lstm', 'gru', or 'rnn'.")
 
         # Fully connected layer
         self.relu4 = nn.LeakyReLU(n_slope)
-        self.fc1 = nn.Linear(in_features=16+in_channels_s, out_features=16)
+        self.fc1 = nn.Linear(in_features=12, out_features=6)
         torch.nn.init.xavier_uniform_(self.fc1.weight)
         self.relu5 = nn.LeakyReLU(n_slope)
-        self.fc2 = nn.Linear(in_features=16, out_features=num_classes)
+        self.fc2 = nn.Linear(in_features=6, out_features=num_classes)
         torch.nn.init.xavier_uniform_(self.fc2.weight)
 
     def forward(self, x, x_freq, x_scl):
@@ -97,12 +97,9 @@ class CRNN(nn.Module):
         x3 = self.fcii(x3)
         x3 = self.reluii(x3)
 
-        x3 = torch.cat([x3[:, None, :], x_scl[:, None, :]], dim=2)
-
         # Recurrent layers
-        x3, _ = self.rnn(x3)
+        x3, _ = self.rnn(x3[:, None, :])
         x3 = self.relu4(x3[:, -1, :])
-        x3 = torch.cat([x3, x_scl], dim=1)
 
         # Fully connected layer
         x4 = self.fc1(x3)

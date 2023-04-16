@@ -7,7 +7,7 @@ torch.manual_seed(42)
 # TODO: Plot confusion matrix
 
 class CRNN(nn.Module):
-    def __init__(self, num_classes, in_channels, model='rnn'):
+    def __init__(self, num_classes, in_channels, in_channels_f, in_channels_s, model='rnn'):
         super(CRNN, self).__init__()
 
         n_slope = 0.01
@@ -67,7 +67,7 @@ class CRNN(nn.Module):
         self.fc2 = nn.Linear(in_features=6, out_features=num_classes)
         torch.nn.init.xavier_uniform_(self.fc2.weight)
 
-    def forward(self, x):
+    def forward(self, x, x_freq, x_scl):
         # Convolutional layers
 
         x1 = self.conv1(x)
