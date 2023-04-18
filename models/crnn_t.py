@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-torch.manual_seed(42)
 
 
 # TODO: Add more residual for recurrent layers
