@@ -8,9 +8,10 @@ from crnn import CRNN
 from lstm import LSTM
 from dataloader import ANNEDataset
 import json
+from torch.optim.lr_scheduler import CyclicLR, CosineAnnealingWarmRestarts
 
 
-def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_every=10):
+def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epochs=100, print_every=10):
     # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     # Using GPUs in PyTorch is pretty straightforward
@@ -21,14 +22,17 @@ def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_e
     else:
         device = "cpu"
 
-    xentropy_weight = torch.tensor([1/30**1.25, 1/56**1.25, 1/14**1.25]).to(device)
-
+    xentropy_weight = torch.tensor([1 / 30 ** 1.25, 1 / 56 ** 1.25, 1 / 14 ** 1.25]).to(device)
 
     criterion = nn.CrossEntropyLoss(weight=xentropy_weight)
     train_accs = []
     test_accs = []
     train_losses = []
     test_losses = []
+    learning_rates = []
+    patience = 10       # for early return
+    best_test_acc = float("-inf")
+    counter = 0
 
     # Move the model to GPU, if available
     model.to(device)
@@ -49,6 +53,10 @@ def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_e
             xentropy_loss.backward()
 
             optimizer.step()
+            lr_scheduler.step(epoch + i / len(train_loader))
+
+            current_lr = lr_scheduler.get_last_lr()[0]
+            learning_rates.append(current_lr)
 
             xentropy_loss_avg += xentropy_loss.item()
 
@@ -67,7 +75,18 @@ def train_model(model, optimizer, train_loader, test_loader, epochs=100, print_e
         train_losses.append(xentropy_loss_avg / i)
         test_losses.append(test_loss)
 
-    return train_accs, test_accs, train_losses, test_losses
+        # Check for early stopping
+        if test_acc > best_test_acc + .01:      # at least 1% accuracy increase is needed to count it as an improvement
+            best_test_acc = test_acc
+            torch.save(model.state_dict(), "./best_model.pt")
+            counter = 0
+        else:
+            counter += 1
+            if counter >= patience:
+                print("Early stopping triggered.")
+                break
+
+    return train_accs, test_accs, train_losses, test_losses, learning_rates
 
 
 def evaluate(model, loader, criterion, device):
@@ -168,17 +187,22 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(dataset=val_dataset)
 
     # Visualize model
-    dummy_input = torch.randn(1024, 6, 25*30)
+    dummy_input = torch.randn(1024, 6, 25 * 30)
     torch.onnx.export(model, dummy_input, "./model.onnx")
 
     # Train model:
-    learning_rate = 0.0001
+    learning_rate = 0.01
+    epochs = 240
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-
+    # Create the learning rate scheduler
+    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=0.001)
+    # scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.01, mode="triangular2", step_size_up=500, cycle_momentum=False)
     # Run the training loop
-    train_accs, test_accs, train_losses, test_losses = train_model(model, optimizer, train_dataloader, val_dataloader,
-                                                                   epochs=240,
-                                                                   print_every=2)
+    train_accs, test_accs, train_losses, test_losses, learning_rates = train_model(model, optimizer, train_dataloader,
+                                                                                   val_dataloader,
+                                                                                   scheduler,
+                                                                                   epochs=epochs,
+                                                                                   print_every=2)
 
     torch.save(model, "./model.pt")
 
@@ -190,4 +214,9 @@ if __name__ == "__main__":
     plt.plot(train_accs)
     plt.plot(test_accs)
     plt.title("accuracy")
+    plt.show()
+
+    plt.plot(learning_rates)
+    plt.plot(learning_rates)
+    plt.title("learning_rates")
     plt.show()
