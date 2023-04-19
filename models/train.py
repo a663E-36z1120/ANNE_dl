@@ -153,7 +153,7 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
     # Load data:
-    validation_id_list = [135, 157, 248, 183, 214, 264]
+    validation_test_id_list = [135, 157, 248, 183, 214, 264]
 
     X1 = None
     X1f = None
@@ -174,7 +174,7 @@ if __name__ == "__main__":
     for id in white_list:
         try:
             X, X_freq, X_scl, t = integrate_data(int(id), white_list[id])
-            if int(id) not in validation_id_list:
+            if int(id) not in validation_test_id_list:
                 if X1 is None:
                     X1 = X
                     X1f = X_freq
