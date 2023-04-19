@@ -7,7 +7,7 @@ from preprocessing.main import integrate_data
 from crnn import CRNN
 from dataloader import ANNEDataset
 import json
-from torch.optim.lr_scheduler import CyclicLR, ExponentialLR, CosineAnnealingWarmRestarts
+from torch.optim.lr_scheduler import CyclicLR, CosineAnnealingWarmRestarts
 
 
 def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epochs=100, print_every=10):
@@ -29,9 +29,14 @@ def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epoch
     train_losses = []
     test_losses = []
     learning_rates = []
-    patience = 10       # for early return
-    best_test_acc = float("-inf")
+    # Early return parameters
+    patience = 50       # we early return if there is no improvement after patience number of epochs
     counter = 0
+    # min_delta = 0.01    # at least 1% accuracy increase is needed to count it as an improvement
+    min_delta = 0
+    best_test_loss = float("inf")
+
+
 
     # Move the model to GPU, if available
     model.to(device)
@@ -55,7 +60,8 @@ def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epoch
 
 
             optimizer.step()
-            lr_scheduler.step(epoch + i / len(train_loader))
+            # lr_scheduler.step(epoch + i / len(train_loader))    # Important: use this for CosineAnnealingWarmRestarts
+            lr_scheduler.step()                                 # use this for CyclicLR
 
             current_lr = lr_scheduler.get_last_lr()[0]
             learning_rates.append(current_lr)
@@ -79,9 +85,9 @@ def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epoch
         test_losses.append(test_loss)
 
         # Check for early stopping
-        if test_acc > best_test_acc + .01:      # at least 1% accuracy increase is needed to count it as an improvement
-            best_test_acc = test_acc
-            torch.save(model.state_dict(), "./best_model.pt")
+        if test_loss < best_test_loss - min_delta:
+            best_test_loss = test_loss
+            torch.save(model, "./es_saved_model.pt")
             counter = 0
         else:
             counter += 1
@@ -205,8 +211,8 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(dataset=val_dataset)
 
     # Visualize model
-    dummy_input = torch.randn(1024, 6, 25 * 30)
-    torch.onnx.export(model, dummy_input, "./model.onnx")
+    # dummy_input = torch.randn(1024, 6, 25 * 30)
+    # torch.onnx.export(model, dummy_input, "./model.onnx")
 
     # Train model:
     learning_rate = 0.01
@@ -219,8 +225,8 @@ if __name__ == "__main__":
     # Train model:
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # Create the learning rate scheduler
-    scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=0.001)
-    # scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.01, mode="triangular2", step_size_up=500, cycle_momentum=False)
+    # scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=0.001)
+    scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.01, mode="triangular2", step_size_up=200, cycle_momentum=False)
     # Run the training loop
     train_accs, test_accs, train_losses, test_losses, learning_rates = train_model(model, optimizer, train_dataloader,
                                                                                    val_dataloader,
