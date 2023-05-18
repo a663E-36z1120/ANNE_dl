@@ -10,7 +10,7 @@ import json
 from torch.optim.lr_scheduler import CyclicLR, CosineAnnealingWarmRestarts
 
 
-def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epochs=100, print_every=10):
+def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epochs=100, print_every=10):
     # optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     # Using GPUs in PyTorch is pretty straightforward
@@ -21,7 +21,7 @@ def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epoch
     else:
         device = "cpu"
 
-    xentropy_weight = torch.tensor([1 / 30 ** 1.25, 1 / 56 ** 1.25, 1 / 14 ** 1.25]).to(device)
+    xentropy_weight = torch.tensor([1 / 30 ** 1.2, 1 / 56 ** 1.2, 1 / 14 ** 1.2]).to(device)
 
     criterion = nn.CrossEntropyLoss(weight=xentropy_weight)
     train_accs = []
@@ -30,7 +30,7 @@ def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epoch
     test_losses = []
     learning_rates = []
     # Early return parameters
-    patience = 50       # we early return if there is no improvement after patience number of epochs
+    patience = 150       # we early return if there is no improvement after patience number of epochs
     counter = 0
     # min_delta = 0.01    # at least 1% accuracy increase is needed to count it as an improvement
     min_delta = 0
@@ -43,45 +43,55 @@ def train_model(model, optimizer, train_loader, test_loader, lr_scheduler, epoch
     model.train()
 
     for epoch in range(epochs):
-        xentropy_loss_avg = 0.
+        xentropy_loss_total = 0.
         correct = 0.
         total = 0.
+        for train_loader in train_loaders:
+            for i, (inputs, inputs_freq, inputs_scl, labels, lengths) in enumerate(train_loader):
+                model.zero_grad()
+                inputs = inputs.to(device)
+                inputs_freq = inputs_freq.to(device)
+                inputs_scl = inputs_scl.to(device)
+                labels = labels.to(device)
+                # inputs = inputs.view(inputs.size(0), -1)  # Flatten input from [batch_size, 1, 28, 28] to [batch_size, 784]
+                pred = model(inputs, inputs_freq, inputs_scl)
+                xentropy_loss = criterion(pred, labels)
+                xentropy_loss.backward()
 
-        for i, (inputs, inputs_freq, inputs_scl, labels, lengths) in enumerate(train_loader):
-            model.zero_grad()
-            inputs = inputs.to(device)
-            inputs_freq = inputs_freq.to(device)
-            inputs_scl = inputs_scl.to(device)
-            labels = labels.to(device)
-            # inputs = inputs.view(inputs.size(0), -1)  # Flatten input from [batch_size, 1, 28, 28] to [batch_size, 784]
-            pred = model(inputs, inputs_freq, inputs_scl)
-            xentropy_loss = criterion(pred, labels)
-            xentropy_loss.backward()
 
+                optimizer.step()
+                # lr_scheduler.step(epoch + i / len(train_loader))    # Important: use this for CosineAnnealingWarmRestarts
+                lr_scheduler.step()                                 # use this for CyclicLR
 
-            optimizer.step()
-            # lr_scheduler.step(epoch + i / len(train_loader))    # Important: use this for CosineAnnealingWarmRestarts
-            lr_scheduler.step()                                 # use this for CyclicLR
+                current_lr = lr_scheduler.get_last_lr()[0]
+                learning_rates.append(current_lr)
 
-            current_lr = lr_scheduler.get_last_lr()[0]
-            learning_rates.append(current_lr)
+                xentropy_loss_total += xentropy_loss.item()
 
-            xentropy_loss_avg += xentropy_loss.item()
-
-            # Calculate running average of accuracy
-            pred = torch.max(pred.data, 1)[1]
-            total += labels.size(0)
-            correct += (pred == labels.data).sum().item()
+                # Calculate running average of accuracy
+                pred = torch.max(pred.data, 1)[1]
+                total += labels.size(0)
+                correct += (pred == labels.data).sum().item()
         accuracy = correct / total
 
-        test_acc, test_loss = evaluate(model, test_loader, criterion, device)
+        test_acc_sum = 0
+        test_loss_sum = 0
+        for test_loader in test_loaders:
+            test_acc, test_loss = evaluate(model, test_loader, criterion, device)
+            test_acc_sum += test_acc
+            test_loss_sum += test_loss
+
+        test_acc = test_acc_sum / len(test_loaders)
+        test_loss = test_loss_sum / len(test_loaders)
+
+
         if epoch % print_every == 0:
             print("Epoch {}, Train acc: {:.2f}%, Test acc: {:.2f}%".format(epoch, accuracy * 100, test_acc * 100))
-            print("Epoch {}, Train loss: {:.2f}, Test loss: {:.2f}".format(epoch, xentropy_loss_avg, test_loss))
+            print("Epoch {}, Train loss: {:.2f}, Test loss: {:.2f}".format(epoch, xentropy_loss_total, test_loss))
 
         train_accs.append(accuracy)
         test_accs.append(test_acc)
-        train_losses.append(xentropy_loss_avg / i)
+        train_losses.append(xentropy_loss_total)
         test_losses.append(test_loss)
 
         # Check for early stopping
@@ -118,7 +128,7 @@ def evaluate(model, loader, criterion, device):
         correct += (pred == labels).sum().item()
 
     val_acc = correct / total
-    val_loss = val_loss / i
+    val_loss = val_loss / len(loader)
     model.train()
     return val_acc, val_loss
 
@@ -153,70 +163,85 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
     # Load data:
-    validation_test_id_list = [135, 157, 248, 183, 214, 264]
+    validation_test_id_list = [135, 157, 248]
 
-    X1 = None
-    X1f = None
-    X1s = None
-    t1 = None
-    X2 = None
-    X2f = None
-    X2s = None
-    t2 = None
+    # X1 = None
+    # X1f = None
+    # X1s = None
+    # t1 = None
+    # X2 = None
+    # X2f = None
+    # X2s = None
+    # t2 = None
 
-    with open('../preprocessing/white_list.json') as json_file:
-        white_list = json.load(json_file)
+    with open('../preprocessing/white_and_grey_list.json') as json_file:
+        train_list = json.load(json_file)
 
     # with open('../preprocessing/grey_list.json') as json_file:
     #     grey_list = json.load(json_file)
     # white_list.update(grey_list)
 
-    for id in white_list:
+    # for id in train_list:
+    #     try:
+    #         X, X_freq, X_scl, t = integrate_data(int(id), train_list[id])
+    #         if int(id) not in validation_test_id_list:
+    #             if X1 is None:
+    #                 X1 = X
+    #                 X1f = X_freq
+    #                 X1s = X_scl
+    #                 t1 = t
+    #             else:
+    #                 X1 = np.concatenate((X1, X), axis=0)
+    #                 X1f = np.concatenate((X1f, X_freq), axis=0)
+    #                 X1s = np.concatenate((X1s, X_scl), axis=0)
+    #                 t1 = np.concatenate((t1, t), axis=1)
+    #         else:
+    #             if X2 is None:
+    #                 X2 = X
+    #                 X2f = X_freq
+    #                 X2s = X_scl
+    #                 t2 = t
+    #             else:
+    #                 X2 = np.concatenate((X2, X), axis=0)
+    #                 X2f = np.concatenate((X2f, X_freq), axis=0)
+    #                 X2s = np.concatenate((X2s, X_scl), axis=0)
+    #                 t2 = np.concatenate((t2, t), axis=1)
+    #     except:
+    #         print(f"Something went wrong for id {id}")
+
+    train_dataloaders = []
+    valid_dataloaders = []
+    for id in train_list:
         try:
-            X, X_freq, X_scl, t = integrate_data(int(id), white_list[id])
+            X, X_freq, X_scl, t = integrate_data(int(id), train_list[id])
+            dataset = ANNEDataset(X, X_freq, X_scl, t, device)
+            size = len(X)
+            print(size)
             if int(id) not in validation_test_id_list:
-                if X1 is None:
-                    X1 = X
-                    X1f = X_freq
-                    X1s = X_scl
-                    t1 = t
-                else:
-                    X1 = np.concatenate((X1, X), axis=0)
-                    X1f = np.concatenate((X1f, X_freq), axis=0)
-                    X1s = np.concatenate((X1s, X_scl), axis=0)
-                    t1 = np.concatenate((t1, t), axis=1)
+                train_dataloaders.append(DataLoader(dataset=dataset, batch_size=size))
             else:
-                if X2 is None:
-                    X2 = X
-                    X2f = X_freq
-                    X2s = X_scl
-                    t2 = t
-                else:
-                    X2 = np.concatenate((X2, X), axis=0)
-                    X2f = np.concatenate((X2f, X_freq), axis=0)
-                    X2s = np.concatenate((X2s, X_scl), axis=0)
-                    t2 = np.concatenate((t2, t), axis=1)
+                valid_dataloaders.append(DataLoader(dataset=dataset, batch_size=size))
         except:
             print(f"Something went wrong for id {id}")
 
     # Build model
     model = CRNN(num_classes=3, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=X_scl.shape[1], model='lstm')
     #
-    # MODEL_PATH = "./model.pt"
+    # MODEL_PATH = "./model_april.pt"
     # model = torch.load(MODEL_PATH)
     # Initialize dataloaders
-    train_dataset = ANNEDataset(X1, X1f, X1s, t1, device)
-    train_dataloader = DataLoader(dataset=train_dataset, batch_size=4096)
-    val_dataset = ANNEDataset(X2, X2f, X2s, t2, device)
-    val_dataloader = DataLoader(dataset=val_dataset)
+    # train_dataset = ANNEDataset(X1, X1f, X1s, t1, device)
+    # train_dataloader = DataLoader(dataset=train_dataset, batch_size=4096)
+    # val_dataset = ANNEDataset(X2, X2f, X2s, t2, device)
+    # val_dataloader = DataLoader(dataset=val_dataset)
 
     # Visualize model
     # dummy_input = torch.randn(1024, 6, 25 * 30)
     # torch.onnx.export(model, dummy_input, "./model.onnx")
 
     # Train model:
-    learning_rate = 0.01
-    epochs = 240
+    learning_rate = 0.005
+    epochs = 1000
     # dummy_input = torch.randn(4096, X.shape[1], 25*30)
     # dummy_input_freq = torch.randn(4096, X_freq.shape[1], X_freq.shape[2])
     # dummy_input_scl = torch.randn(4096, X_scl.shape[1], X_scl.shape[2])
@@ -226,15 +251,15 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     # Create the learning rate scheduler
     # scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2, eta_min=0.001)
-    scheduler = CyclicLR(optimizer, base_lr=0.0001, max_lr=0.01, mode="triangular2", step_size_up=200, cycle_momentum=False)
+    scheduler = CyclicLR(optimizer, base_lr=0.00001, max_lr=0.01, mode="triangular2", step_size_up=200, cycle_momentum=False)
     # Run the training loop
-    train_accs, test_accs, train_losses, test_losses, learning_rates = train_model(model, optimizer, train_dataloader,
-                                                                                   val_dataloader,
+    train_accs, test_accs, train_losses, test_losses, learning_rates = train_model(model, optimizer, train_dataloaders,
+                                                                                   valid_dataloaders,
                                                                                    scheduler,
                                                                                    epochs=epochs,
                                                                                    print_every=1)
 
-    torch.save(model, "./model.pt")
+    torch.save(model, "model.pt")
     print("Model Saved")
 
     plt.plot(train_losses)
