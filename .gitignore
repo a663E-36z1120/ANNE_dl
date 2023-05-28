@@ -1,0 +1,12 @@
+# .gitignore
+
+# MacOS system files
+.DS_Store
+
+# IDE files
+.idea/
+
+# Compiled Python files
+feature_engineering/__pycache__/
+models/__pycache__/
+preprocessing/__pycache__/
