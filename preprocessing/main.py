@@ -74,6 +74,12 @@ def integrate_data(subject_id, shift=0):
     ecg = (ecg - ecg.mean()) / np.sqrt(ecg.var())
     ppg = (ppg - ppg.mean()) / np.sqrt(ppg.var())
     temp = (temp - temp.mean()) / np.sqrt(temp.var())
+    heart_rate = (heart_rate - heart_rate.mean()) / np.sqrt(heart_rate.var())
+    z_angle = (z_angle - z_angle.mean()) / np.sqrt(z_angle.var())
+    x_acc = (x_acc - x_acc.mean()) / np.sqrt(x_acc.var())
+    y_acc = (y_acc - y_acc.mean()) / np.sqrt(y_acc.var())
+    z_acc = (z_acc - z_acc.mean()) / np.sqrt(z_acc.var())
+
 
     # z_angle = (z_angle + 90) / 180
     # heart_rate = heart_rate / np.sqrt(heart_rate.var())
@@ -89,9 +95,23 @@ def integrate_data(subject_id, shift=0):
     temp = np.reshape(temp[:n], (-1, 1, SAMP_RATE * WINDOW_LEN))
     heart_rate = np.reshape(heart_rate[:n], (-1, 1, SAMP_RATE * WINDOW_LEN))
 
+    (ecg_freq, ppg_freq, x_freq, y_freq, z_freq, zangle_freq), (hrv_s, ecg_s, ppg_s, z_angle_s, temp_s, enmo_s) = \
+        get_f_s_features(ecg, ppg, enmo, z_angle, temp, heart_rate, x_acc, y_acc, z_acc)
+
+    t = np.where((t == 2) | (t == 3), 1, t)
+    t = np.where(t == 4, 2, t)
+
+    t = np.reshape(t, (-1, len(t)))
+    X = np.concatenate((ecg, ppg, enmo, z_angle, temp, heart_rate), axis=1)
+
+    X_freq = np.concatenate((ecg_freq, ppg_freq, x_freq, y_freq, z_freq, zangle_freq), axis=1).astype('float32')
+
+    X_scl = np.concatenate((hrv_s, ecg_s, ppg_s, z_angle_s, temp_s, enmo_s), axis=1).astype('float32')
+
+    return X, X_freq, X_scl, t
 
 
-    # Frequency features
+def get_f_s_features(ecg, ppg, enmo, z_angle, temp, heart_rate, x_acc, y_acc, z_acc):
     ecg_freq = np.expand_dims(ecg_pwr_sptr(np.squeeze(ecg)), axis=1)
     ecg_freq = np.clip(ecg_freq, 0, np.mean(ecg_freq) + 4 * np.var(ecg_freq) ** 0.5) / np.var(ecg_freq) ** 0.5
     ppg_freq = np.expand_dims(ppg_pwr_sptr(np.squeeze(ppg)), axis=1)
@@ -104,7 +124,7 @@ def integrate_data(subject_id, shift=0):
     z_freq = np.clip(z_freq, 0, np.mean(z_freq) + 4 * np.var(z_freq) ** 0.5) / (np.var(z_freq) ** 0.5)
     zangle_freq = np.expand_dims(z_angle_pwr_sptr(np.squeeze(z_angle)), axis=1)
     zangle_freq = np.clip(zangle_freq, 0, np.mean(zangle_freq) + 4 * np.var(zangle_freq) ** 0.5) / (
-                np.var(z_freq) ** 0.5)
+            np.var(z_freq) ** 0.5)
 
     # Scalar features
     hrv_s = hrv(ecg)
@@ -120,33 +140,7 @@ def integrate_data(subject_id, shift=0):
     enmo_s = np.expand_dims(enmo_s, axis=1)
     temp_s = np.expand_dims(temp_s, axis=1)
 
-
-    # ecg = (np.clip(ecg, np.mean(ecg) - 4 * np.var(ecg) ** 0.5, np.mean(ecg) + 4 * np.var(ecg) ** 0.5))
-    # ppg = (np.clip(ppg, np.mean(ppg) - 4 * np.var(ppg) ** 0.5, np.mean(ppg) + 4 * np.var(ppg) ** 0.5))
-    # x_acc = (np.clip(x_acc, np.mean(x_acc) - 4 * np.var(x_acc) ** 0.5, np.mean(x_acc) + 4 * np.var(x_acc) ** 0.5))
-    # y_acc = (np.clip(y_acc, np.mean(y_acc) - 4 * np.var(y_acc) ** 0.5,
-    #                  np.mean(y_acc) + 4 * np.var(y_acc) ** 0.5))
-    # z_acc = (np.clip(z_acc, np.mean(z_acc) - 4 * np.var(z_acc) ** 0.5,
-    #                  np.mean(z_acc) + 4 * np.var(z_acc) ** 0.5) )
-    # z_angle = (np.clip(z_angle, np.mean(z_angle) - 4 * np.var(z_angle) ** 0.5,
-    #                    np.mean(z_angle) + 4 * np.var(z_angle) ** 0.5) )
-    # enmo = (np.clip(enmo, np.mean(enmo) - 4 * np.var(enmo) ** 0.5, np.mean(enmo) + 4 * np.var(enmo) ** 0.5))
-    # temp = (np.clip(temp, np.mean(temp) - 4 * np.var(temp) ** 0.5, np.mean(temp) + 4 * np.var(temp) ** 0.5) )
-    # heart_rate = (np.clip(heart_rate, np.mean(heart_rate) - 4 * np.var(heart_rate) ** 0.5,
-    #                       np.mean(heart_rate) + 4 * np.var(heart_rate) ** 0.5) )
-
-
-    t = np.where((t == 2) | (t == 3), 1, t)
-    t = np.where(t == 4, 2, t)
-
-    t = np.reshape(t, (-1, len(t)))
-    X = np.concatenate((ecg, ppg, enmo, z_angle, temp, heart_rate), axis=1)
-
-    X_freq = np.concatenate((ecg_freq, ppg_freq, x_freq, y_freq, z_freq, zangle_freq), axis=1).astype('float32')
-
-    X_scl = np.concatenate((hrv_s, ecg_s, ppg_s, z_angle_s, temp_s, enmo_s), axis=1).astype('float32')
-
-    return X, X_freq, X_scl, t
+    return (ecg_freq, ppg_freq, x_freq, y_freq, z_freq, zangle_freq), (hrv_s, ecg_s, ppg_s, z_angle_s, temp_s, enmo_s)
 
 
 def integrate_raw(subject_id, shift=0):
@@ -207,12 +201,14 @@ def integrate_raw(subject_id, shift=0):
     n = n - n_samples_left - n_samples_right
 
     # Normalization and standardization
-    ecg = (ecg - ecg.mean()) / np.sqrt(ecg.var())
-    ppg = (ppg - ppg.mean()) / np.sqrt(ppg.var())
-    temp = (temp - temp.mean()) / np.sqrt(temp.var())
-
-    # z_angle = (z_angle + 90) / 180
-    # heart_rate = heart_rate / np.sqrt(heart_rate.var())
+    # ecg = (ecg - ecg.mean()) / np.sqrt(ecg.var())
+    # ppg = (ppg - ppg.mean()) / np.sqrt(ppg.var())
+    # temp = (temp - temp.mean()) / np.sqrt(temp.var())
+    # heart_rate = (heart_rate - heart_rate.mean()) / np.sqrt(heart_rate.var())
+    # z_angle = (z_angle - z_angle.mean()) / np.sqrt(z_angle.var())
+    # x_acc = (x_acc - x_acc.mean()) / np.sqrt(x_acc.var())
+    # y_acc = (y_acc - y_acc.mean()) / np.sqrt(y_acc.var())
+    # z_acc = (z_acc - z_acc.mean()) / np.sqrt(z_acc.var())
 
     # Features
     ecg = np.reshape(ecg[:n], (-1, 1, SAMP_RATE * WINDOW_LEN))
@@ -288,6 +284,13 @@ def plot_window(X, index=0):
         axs[i].plot(arr)
     plt.show()
 
+
+def augment_data(X):
+    """Perform data augmentation given a time domain data set.
+    Returns
+    """
+    X_freq, X_scl = None
+    return X, X_freq, X_scl
 
 if __name__ == "__main__":
     X, X_freq, t = integrate_data(132, -7.64)
