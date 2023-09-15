@@ -1,6 +1,6 @@
 import torch
 import json
-from preprocessing.main import integrate_data
+from preprocessing.main import main
 import numpy as np
 from dataloader import ANNEDataset
 from torch.utils.data import DataLoader
@@ -8,7 +8,15 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
 
-MODEL_PATH = "model.pt"
+MODEL_PATH = "checkpoints/3-class.pt"
+
+def read_strings_from_json(filename):
+    with open(filename, "r") as json_file:
+        data = json.load(json_file)
+        if "strings" in data:
+            return data["strings"]
+        else:
+            return []
 
 
 def predict(model, loader, device):
@@ -39,18 +47,13 @@ def predict(model, loader, device):
 if __name__ == "__main__":
     model = torch.load(MODEL_PATH)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-    test_id_list = [135, 157, 248]
-
-    with open('../preprocessing/white_list.json') as json_file:
-        white_list = json.load(json_file)
-
+    # device = "cpu"
 
     predict_loaders = []
-    for id in test_id_list:
+    for path in read_strings_from_json("./validation.json"):
 
-        X, X_freq, X_scl, t = integrate_data(int(id), white_list[str(id)])
+        X, X_freq, X_scl, t = main(path)
+        # t = np.where(t == 2, 1, t)
         dataset = ANNEDataset(X, X_freq, X_scl, t, device)
         size = len(X)
 
@@ -69,21 +72,28 @@ if __name__ == "__main__":
         else:
             labels1 = np.concatenate((labels1, labels), axis=0)
             preds1 = np.concatenate((preds1, preds), axis=0)
+
     print(labels1)
     print(preds1)
     conf_mat = confusion_matrix(labels1, preds1, normalize="true")
 
+    print(np, sum(labels1) * 30 / 60 / 60)
+
+    plt.plot(labels1, marker="x", linestyle="", alpha=0.75, markersize=15)
+    plt.plot(preds1, marker=".", linestyle="", alpha=0.75, markersize=15)
+    plt.show()
+
     disp = ConfusionMatrixDisplay(confusion_matrix=conf_mat)
     disp.plot()
     plt.show()
+
+
 
     # Visualize model
     dummy_input = torch.randn(4096, X.shape[1], 25 * 30).to(device)
     dummy_input_freq = torch.randn(4096, X_freq.shape[1], X_freq.shape[2]).to(device)
     dummy_input_scl = torch.randn(4096, X_scl.shape[1]).to(device)
     torch.onnx.export(model, args=(dummy_input, dummy_input_freq, dummy_input_scl), f="./model.onnx")
-
-
 
     pass
 

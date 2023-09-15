@@ -14,6 +14,12 @@ t_axis = np.arange(0, WINDOW_LEN, 1 / SAMP_RATE)
 freq = np.fft.fftshift(np.fft.fftfreq(N, 1 / SAMP_RATE))[N // 2:]
 
 
+
+def system(v, delta):
+  return 2*delta*np.sin(2*np.pi*v*delta)/(2*np.pi*v*delta)
+
+
+
 def ecg_pwr_sptr(ecg):
     power = np.fft.fftshift(abs(np.fft.fft(ecg * 2 * np.hanning(N))))
     power = power[:, N // 2:] * 1 / SAMP_RATE
