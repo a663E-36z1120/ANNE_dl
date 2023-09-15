@@ -149,6 +149,7 @@ class CRNN(nn.Module):
         x3 = torch.cat([x3[:, None, :], x3f[:, None, :]], dim=2)
         x3 = self.dropout1(x3)
 
+        print(x3.shape, x3f.shape, x_scl.shape)
         # x3 = self.fci(x3)
         # x3 = self.relui(x3)
         # x3 = self.fcii(x3)
