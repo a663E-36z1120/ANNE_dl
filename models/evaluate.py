@@ -1,6 +1,5 @@
 import torch
-import json
-from preprocessing.main import main
+from preprocessing.main import main, read_strings_from_json
 import numpy as np
 from dataloader import ANNEDataset
 from torch.utils.data import DataLoader
@@ -9,14 +8,6 @@ import matplotlib.pyplot as plt
 
 
 MODEL_PATH = "checkpoints/3-class.pt"
-
-def read_strings_from_json(filename):
-    with open(filename, "r") as json_file:
-        data = json.load(json_file)
-        if "strings" in data:
-            return data["strings"]
-        else:
-            return []
 
 
 def predict(model, loader, device):
