@@ -126,7 +126,8 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
         # Check for early stopping
         if test_loss < best_test_loss - min_delta:
             best_test_loss = test_loss
-            torch.save(model, f"checkpoints/es_{timestr}.pt")
+            model_scripted = torch.jit.script(model)
+            model_scripted.save(f"checkpoints/es_{timestr}.pt")
             print("saved new model")
             counter = 0
         else:
@@ -258,8 +259,8 @@ if __name__ == "__main__":
                                                                                    scheduler,
                                                                                    epochs=epochs,
                                                                                    print_every=1)
-
-    torch.save(model, f"checkpoints/model_{timestr}.pt")
+    model_scripted = torch.jit.script(model)
+    model_scripted.save(f"checkpoints/model_{timestr}.pt")
     print("Model Saved")
 
     plt.plot(train_losses)

@@ -2,15 +2,12 @@
 # @author: Andrew H. Zhang
 
 from matplotlib import pyplot as plt
-from math import ceil
 from scipy import signal
 # from feature_engineering.features import *
 import numpy as np
 import mne
 import os
-import random
-
-
+import json
 
 DATA_DIR = "/mnt/Common/Data"
 ML_SAMP_RATE = 25  # Hz
@@ -52,10 +49,11 @@ def process_time_series(series, start_index, end_index):
 
 
 def pwr_sptr(signals):
-    N = ML_SAMP_RATE*WINDOW_LEN
+    N = ML_SAMP_RATE * WINDOW_LEN
     power = np.fft.fftshift(abs(np.fft.fft(signals * 2 * np.hanning(N))))
     power = power[:, N // 2:] * 1 / ML_SAMP_RATE
     return power
+
 
 def get_frequency_features(signals):
     signals = signal.resample(signals, ML_SAMP_RATE * WINDOW_LEN, axis=2)
@@ -68,13 +66,19 @@ def get_scalar_features():
     pass
 
 
-def main(path):
+def main(path, inference=False):
     data = mne.io.read_raw_edf(path)
     raw_data = data.get_data()
 
-    # create target vector
-    target_array = raw_data[27]
-    start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
+    if inference:
+        target_array = np.zeros_like(raw_data[0])
+        start_index = 0
+        end_index = len(target_array) - (len(target_array) % (WINDOW_LEN * EDF_SAMP_RATE))
+    else:
+        # create target vector
+        target_array = raw_data[27]
+        start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
+
     t = process_target(target_array, start_index, end_index)
     t = np.reshape(t, (-1, len(t)))
 
@@ -84,7 +88,7 @@ def main(path):
         None, None, raw_data[7], raw_data[8], raw_data[9], raw_data[10], raw_data[11], None, None, None, None
 
     enmo = np.sqrt(x_acc ** 2 + y_acc ** 2 + z_acc ** 2) - 1
-    z_angle = (np.arctan(z_acc / (np.sqrt(np.power(x_acc,2) + np.power(y_acc,2)))))/(np.pi/180)
+    z_angle = (np.arctan(z_acc / (np.sqrt(np.power(x_acc, 2) + np.power(y_acc, 2))))) / (np.pi / 180)
     z_angle = np.float32(z_angle)
     temp_diff = chest_temp - limb_temp
 
@@ -92,7 +96,7 @@ def main(path):
         2: ecg, 5: ppg, 7: x_acc, 8: y_acc, 9: z_acc, 10: chest_temp, 11: limb_temp,
         17: pat, 21: hr, 22: spo2, 23: rr,
         -1: enmo, -2: z_angle, -3: temp_diff
-                   }
+    }
     #  02: ecg processed -
     #  05: ppg processed -
     #  07 08 09: x, y, z acceleration -
@@ -122,17 +126,17 @@ def main(path):
     hr = signals_map[21]
     rr = signals_map[23]
     X = np.concatenate((hr, pat, enmo, z_angle, rr, temp_diff), axis=1)
-    X = signal.resample(X, ML_SAMP_RATE*WINDOW_LEN, axis=2).astype('float32')
+    X = signal.resample(X, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
 
     x_acc, y_acc, z_acc = signals_map[7], signals_map[8], signals_map[9]
 
     ecg_freq, ppg_freq, x_freq, y_freq, z_freq, z_angle_freq = \
-        get_frequency_features(ecg), get_frequency_features(ppg), get_frequency_features(x_acc), get_frequency_features(y_acc), get_frequency_features(z_acc), get_frequency_features(z_angle)
+        get_frequency_features(ecg), get_frequency_features(ppg), get_frequency_features(x_acc), get_frequency_features(
+            y_acc), get_frequency_features(z_acc), get_frequency_features(z_angle)
 
     X_freq = np.concatenate((ecg_freq, ppg_freq, x_freq, y_freq, z_freq), axis=1).astype('float32')
 
-
-    return X, X_freq,np.zeros(shape = (len(X), 1)), t
+    return X, X_freq, np.zeros(shape=(len(X), 1)), t
 
 
 def get_edf_files(directory):
@@ -159,6 +163,16 @@ def count_elements(arrays_list):
             counts[element] += count
 
     return counts
+
+
+def read_strings_from_json(filename):
+    with open(filename, "r") as json_file:
+        data = json.load(json_file)
+        if "strings" in data:
+            return data["strings"]
+        else:
+            return []
+
 
 if __name__ == "__main__":
     # main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
@@ -187,17 +201,15 @@ if __name__ == "__main__":
 
         targets.append(t)
 
-
     result = count_elements(targets)
 
-        # # t = np.reshape(t, (-1, len(t)))
-        # plt.plot(t)
-        # plt.savefig(f"{path[:-4]}.png")
-        # plt.clf()
+    # # t = np.reshape(t, (-1, len(t)))
+    # plt.plot(t)
+    # plt.savefig(f"{path[:-4]}.png")
+    # plt.clf()
 
     total = wake_count + rem_count + nrem_count
     print(total)
-    print(f"wake: {wake_count/total}")
-    print(f"nrem: {nrem_count/total}")
-    print(f"rem: {rem_count/total}")
-
+    print(f"wake: {wake_count / total}")
+    print(f"nrem: {nrem_count / total}")
+    print(f"rem: {rem_count / total}")
