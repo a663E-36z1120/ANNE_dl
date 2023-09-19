@@ -6,8 +6,6 @@ from scipy import signal
 import os
 import json
 from datetime import datetime, timedelta
-import biosppy.signals.ecg as ecg
-
 
 DATA_DIR = "/mnt/Common/data-full"
 sample_rate = 25
@@ -158,10 +156,6 @@ def clip_array_within_std(arr):
     clipped_arr = np.clip(arr, lower_bound, upper_bound)
     return clipped_arr - mean
 
-def filter_ecg(signal, sample_rate):
-    _, ecg_signal_filt, _, _, _, _, _ = ecg.ecg(signal=signal, sampling_rate=sample_rate, show=False)
-    return ecg_signal_filt
-
 
 if __name__ == "__main__":
 
@@ -193,7 +187,7 @@ if __name__ == "__main__":
             time_diff = int((psg_date - anne_date).total_seconds())
             #
             ANNE_ECG = ANNE_signals[0][time_diff*128:]
-            PSG_ECG = filter_ecg(PSG_signals[14], 256)
+            PSG_ECG = PSG_signals[14]
 
 
             # downsample PSG ecg from 256 hz to 25 hz

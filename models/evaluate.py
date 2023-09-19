@@ -7,7 +7,7 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
 
-MODEL_PATH = "checkpoints/3-class.pt"
+MODEL_PATH = "checkpoints/3-class-torch-script.pt"
 
 
 def predict(model, loader, device):
@@ -36,7 +36,7 @@ def predict(model, loader, device):
 
 
 if __name__ == "__main__":
-    model = torch.load(MODEL_PATH)
+    model = torch.jit.load(MODEL_PATH)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     # device = "cpu"
 
@@ -49,7 +49,6 @@ if __name__ == "__main__":
         size = len(X)
 
         predict_loaders.append(DataLoader(dataset=dataset, batch_size=size))
-
 
     # test_dataset = ANNEDataset(X_test, X_freq_test, X_scl_test, t_test, device)
     # test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_dataset.__len__())
