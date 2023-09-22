@@ -36,7 +36,8 @@ def process_target(target_array, start_index, end_index):
     t = target_matrix[:, 0].astype(int)
 
     t = np.where((t == 2) | (t == 3), 1, t)
-    t = np.where(t >= 4, 2, t)
+    t = np.where(t == 4, 2, t)
+    t = np.where(t > 4, 1, t)
 
     return t
 

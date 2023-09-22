@@ -6,8 +6,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
-
-MODEL_PATH = "checkpoints/3-class-torch-script.pt"
+MODEL_PATH = "checkpoints/3-class.pt"
 
 
 def predict(model, loader, device):
@@ -42,7 +41,6 @@ if __name__ == "__main__":
 
     predict_loaders = []
     for path in read_strings_from_json("./validation.json"):
-
         X, X_freq, X_scl, t = main(path)
         # t = np.where(t == 2, 1, t)
         dataset = ANNEDataset(X, X_freq, X_scl, t, device)
@@ -77,8 +75,6 @@ if __name__ == "__main__":
     disp.plot()
     plt.show()
 
-
-
     # Visualize model
     dummy_input = torch.randn(4096, X.shape[1], 25 * 30).to(device)
     dummy_input_freq = torch.randn(4096, X_freq.shape[1], X_freq.shape[2]).to(device)
@@ -86,4 +82,3 @@ if __name__ == "__main__":
     torch.onnx.export(model, args=(dummy_input, dummy_input_freq, dummy_input_scl), f="./model.onnx")
 
     pass
-
