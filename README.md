@@ -34,9 +34,24 @@ All flags:\
 `-d /path/dir_containing_edf_files`: path to a directory containing a collection of `.edf` files to run inference on\
 `-o /path/dir_to_dump_output_files`: the directory to dump all output files, defaults to `./`
 \
+`-c {2, 3}`: use this flag to control whether to perform Wake-Sleep 2-class inference or Wake-NREM-REM 3-class inference.
+\
 `-v`: add this flag if you want an accompanying `.png` file to visualize the outputs.
 
 ### Output Format
 The output `.csv` will contain a single column of integers in {0, 1, 2}, where 0 := Wake, 1 := NREM, and 2 := REM.
 Sequentially every integer entry corresponds to the sleep stage prediction for each consecutive 30s window of the input time series aligned to the start of the file.
 The remainder datapoints at the end of the file that have a sequence length shorter than 30s is discarded.
+
+## Preliminary Results
+### v1 Dataset
+Approaches and results for the v1 dataset documented in detail in `/results/dataset_v1_results.pdf`.
+
+### v2 Dataset
+#### Binary Sleep-Wake
+![](./results/2-class-best-result.png)
+#### 3-class REM-NREM-Wake
+![](./results/3-class-best-result.png)
+
+
+
