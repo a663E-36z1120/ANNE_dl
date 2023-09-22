@@ -45,7 +45,7 @@ The remainder datapoints at the end of the file that have a sequence length shor
 
 ## Preliminary Results
 ### v1 Dataset
-Approaches and results for the v1 dataset documented in detail in `/results/dataset_v1_results.pdf`.
+Approaches and results for the v1 dataset documented in detail in [`/results/dataset_v1_results.pdf`](./results/dataset_v1_results.pdf).
 
 ### v2 Dataset
 #### Binary Sleep-Wake
