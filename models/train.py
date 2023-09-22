@@ -19,6 +19,8 @@ random.seed(42)
 torch.manual_seed(42)
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
+N_CLASSES = 3
+
 
 class CosineWithWarmupLR(LambdaLR):
     def __init__(self, optimizer, warmup_epochs, max_epochs, max_lr=0.001, min_lr=0.0001):
@@ -47,8 +49,10 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
     else:
         device = "cpu"
 
-    xentropy_weight = torch.tensor([1 / 27 ** 1.5, 1 / 62 ** 1.5, 1 / 11 ** 1.5]).to(device)
-    # xentropy_weight = torch.tensor([1 / 27 ** 1.75, 1 / 73 ** 1.75]).to(device)
+    if N_CLASSES == 3:
+        xentropy_weight = torch.tensor([1 / 27 ** 1.5, 1 / 62 ** 1.5, 1 / 11 ** 1.5]).to(device)
+    else:
+        xentropy_weight = torch.tensor([1 / 27 ** 1.75, 1 / 73 ** 1.75]).to(device)
 
     criterion = nn.CrossEntropyLoss(weight=xentropy_weight)
     train_accs = []
@@ -204,15 +208,14 @@ if __name__ == "__main__":
     # print(train_list)
     # validation_list = [train_list_[1]]
 
-
-
     train_dataloaders = []
     valid_dataloaders = []
     for path in train_list:
         # try:
             X, X_freq, X_scl, t = main(path)
             # for binary classification
-            # t = np.where(t == 2, 1, t)
+            if N_CLASSES == 2:
+                t = np.where(t == 2, 1, t)
             # print(t)
             dataset = ANNEDataset(X, X_freq, np.zeros(shape = (len(X), 1)), t, device)
             size = len(X)
@@ -226,7 +229,7 @@ if __name__ == "__main__":
     # random.shuffle(train_list)
 
     # Build model
-    model = CRNN(num_classes=3, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=0, model='gru')
+    model = CRNN(num_classes=N_CLASSES, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=0, model='gru')
     #
     # MODEL_PATH = ""
     # model = torch.load(MODEL_PATH)
@@ -252,8 +255,8 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9, 0.95), weight_decay=0.1)
     # Create the learning rate scheduler
     scheduler = CosineWithWarmupLR(optimizer, warmup_epochs=15, max_epochs=150, max_lr=learning_rate, min_lr=0.000001)
-    # scheduler = CyclicLR(optimizer, max_lr = 0.01, base_lr =0.0000001, step_size_up=15, step_size_down=20, gamma=0.85, cycle_momentum=False, mode="triangular2")
-    # Run the training loop
+    # scheduler = CyclicLR(optimizer, max_lr = 0.01, base_lr =0.0000001, step_size_up=15, step_size_down=20,
+    # gamma=0.85, cycle_momentum=False, mode="triangular2") Run the training loop
     train_accs, test_accs, train_losses, test_losses, learning_rates = train_model(model, optimizer, train_dataloaders,
                                                                                    valid_dataloaders,
                                                                                    scheduler,

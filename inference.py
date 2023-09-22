@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import os
 import argparse
 
-MODEL_PATH = "models/checkpoints/3-class-torch-script.pt"
+MODEL_PATH_3_CLASS = "models/checkpoints/3-class.pt"
+MODEL_PATH_2_CLASS = "models/checkpoints/2-class.pt"
 
 
 def infer(model, loader, device):
@@ -76,21 +77,28 @@ def write_png(vector, file_path):
 if __name__ == "__main__":
     cuda_available = torch.cuda.is_available()
     device = torch.device("cuda:0" if cuda_available else "cpu")
-    if not cuda_available:
-        model = torch.jit.load(MODEL_PATH, map_location=device)
-    else:
-        model = torch.jit.load(MODEL_PATH)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--list', help='comma delimited list of edf files', type=str, required=False)
     parser.add_argument('-d', '--dir', help='directory containing edf files', type=str, required=False)
     parser.add_argument('-o', '--output', help='output directory', type=str, required=False, default=".")
-    parser.add_argument('-v', '--visualize', help='output directory', type=bool, required=False, default=False)
+    parser.add_argument('-v', '--visualize', help='output directory', required=False, default=False, action="store_true")
+    parser.add_argument('-c', '--classes', help='number of classes', type=int, required=False, default=3)
 
     args = vars(parser.parse_args())
+
+    if args["classes"] == 3:
+        model_path = MODEL_PATH_3_CLASS
+    else:
+        model_path = MODEL_PATH_2_CLASS
+
+    if not cuda_available:
+        model = torch.jit.load(model_path, map_location=device)
+    else:
+        model = torch.jit.load(model_path)
+
     edf_list = []
 
-    print(args)
     lst = args["list"]
     dirc = args["dir"]
     out = args["output"]
@@ -111,7 +119,7 @@ if __name__ == "__main__":
         size = len(X)
 
         data_loader = DataLoader(dataset=dataset, batch_size=size)
-        print(f"Performing inference with {MODEL_PATH} ...")
+        print(f"Performing inference with {MODEL_PATH_3_CLASS} ...")
         preds = infer(model, data_loader, device)
 
         name, directory = parse_path(path)
