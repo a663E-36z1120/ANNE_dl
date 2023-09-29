@@ -37,7 +37,10 @@ def process_target(target_array, start_index, end_index):
 
     t = np.where((t == 2) | (t == 3), 1, t)
     t = np.where(t == 4, 2, t)
-    t = np.where(t > 4, 1, t)
+    t = np.where(t > 4, 2, t)
+    # temporarily classify the unknown class as NREM
+    t = np.where(t == 9, 1, t)
+    t = np.where(t > 4, 2, t)
 
     return t
 
@@ -176,7 +179,7 @@ def read_strings_from_json(filename):
 
 
 if __name__ == "__main__":
-    # main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
+    main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
     # edf_files = get_edf_files("/mnt/Common/data")
     # print(edf_files)
     # print(len(edf_files))
