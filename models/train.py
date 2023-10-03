@@ -6,6 +6,9 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 
+import sys
+sys.path.append(".")
+# sys.path.append("/home/ed11235/projects/def-alim/ed11235/ANNE_dl")
 from preprocessing.main import main, get_edf_files
 from crnn_tf_v3 import CRNN
 from dataloader import ANNEDataset
@@ -198,7 +201,7 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
     # Load data:
-    train_list = get_edf_files("/mnt/Common/data")
+    train_list = get_edf_files("/home/ed11235/scratch/data/")
 
     validation_list = random.sample(train_list, 20)
     print(validation_list)
