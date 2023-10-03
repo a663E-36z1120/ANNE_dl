@@ -1,6 +1,14 @@
 # Deep Learning Approaches to Multi-modal Wearable Biomedical Device (ANNE-One) Sleep Staging
 Code repository supporting research in deep learning approaches for multi-modal wearable biomedical device sleep staging. Courtesy of Sunnybrook Research Institute &amp; The teaching teams of CSC413/2516+PHY408 @ UofT.
 
+# How to use this branch
+To start the training, use
+`sbatch job.sh`
+
+To monitor the status of this job, use
+`sq`
+
+
 ## Performing Inference
 ### Data Format
 Please prepare your input data in `.edf` format with the following specifications:
