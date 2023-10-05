@@ -61,7 +61,7 @@ class CRNN(nn.Module):
         # Linear encoding layers
 
         self.flatten = nn.Flatten()
-        self.dropout1 = torch.nn.Dropout(0.5)
+        self.dropout1 = torch.nn.Dropout(0.4)
 
         # self.relui = nn.LeakyReLU(n_slope)
         # self.fci = nn.Linear(in_features=192, out_features=128)
@@ -88,12 +88,12 @@ class CRNN(nn.Module):
         self.relu4 = nn.LeakyReLU(n_slope)
         self.dropout2 = torch.nn.Dropout(0.1)
 
-        self.fc1 = nn.Linear(in_features=106, out_features=256)
+        self.fc1 = nn.Linear(in_features=106, out_features=64)
         torch.nn.init.xavier_uniform_(self.fc1.weight)
         self.relu5 = nn.LeakyReLU(n_slope)
         self.dropout3 = torch.nn.Dropout(0.1)
 
-        self.fc2 = nn.Linear(in_features=256, out_features=64)
+        self.fc2 = nn.Linear(in_features=64, out_features=64)
         torch.nn.init.xavier_uniform_(self.fc2.weight)
         self.relu6 = nn.LeakyReLU(n_slope)
         self.dropout4 = torch.nn.Dropout(0.1)
@@ -116,13 +116,13 @@ class CRNN(nn.Module):
         # Residual connection
         x = self.pool0(x)
         x2 = torch.cat([x, x2], dim=1)
-        x2 = self.dropout1(x2)
+        # x2 = self.dropout1(x2)
 
         x3 = self.conv3(x2)
         x3 = self.bn3(x3)
         x3 = self.relu3(x3)
         x3 = self.pool3(x3)
-        x3 = self.dropout2(x3)
+        # x3 = self.dropout2(x3)
 
         # Reshape for recurrent layers
         # x3 = x3.permute(0, 2, 1)  # swap dimensions for RNN input
@@ -142,13 +142,13 @@ class CRNN(nn.Module):
         # Residual connection
         xf = self.pool0f(x_freq)
         x2f = torch.cat([xf, x2f], dim=1)
-        x2f = self.dropout1(x2f)
+        # x2f = self.dropout1(x2f)
 
         x3f = self.conv3f(x2f)
         x3f = self.bn3f(x3f)
         x3f = self.relu3f(x3f)
         x3f = self.pool3f(x3f)
-        x3f = self.dropout2(x3f)
+        # x3f = self.dropout2(x3f)
 
         # Reshape for recurrent layers
         # x3f = x3f.permute(0, 2, 1)  # swap dimensions for RNN input
@@ -156,7 +156,7 @@ class CRNN(nn.Module):
 
         # Concat freq and time domain
         x3 = torch.cat([x3[:, None, :], x3f[:, None, :]], dim=2)
-        # x3 = self.dropout1(x3)
+        x3 = self.dropout1(x3)
 
         # x3 = self.fci(x3)
         # x3 = self.relui(x3)
@@ -177,9 +177,9 @@ class CRNN(nn.Module):
         x4 = self.relu5(x4)
         # x4 = self.dropout3(x4)
 
-        x5 = self.fc2(x4)
-        x5 = self.relu6(x5)
-        # x5 = self.dropout4(x5)
+        # x5 = self.fc2(x4)
+        # x5 = self.relu6(x5)
+        x5 = self.dropout4(x4)
         x5 = self.fc3(x5)
 
         return x5

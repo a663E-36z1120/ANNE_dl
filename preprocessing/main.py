@@ -36,10 +36,12 @@ def process_target(target_array, start_index, end_index):
     t = target_matrix[:, 0].astype(int)
 
     t = np.where((t == 2) | (t == 3), 1, t)
-    t = np.where(t == 4, 2, t)
+    # temporarily classify the unknown class as Wake
+    t = np.where(t == 9, 0, t)
+
     t = np.where(t > 4, 2, t)
-    # temporarily classify the unknown class as NREM
-    t = np.where(t == 9, 1, t)
+    t = np.where(t == 4, 2, t)
+
     t = np.where(t > 4, 2, t)
 
     return t
@@ -188,8 +190,6 @@ if __name__ == "__main__":
 
     paths = get_edf_files("/mnt/Common/data")
 
-    wake_count, nrem_count, rem_count = 0, 0, 0
-
     targets = []
     for path in paths:
         data = mne.io.read_raw_edf(path)
@@ -197,7 +197,7 @@ if __name__ == "__main__":
 
         # create target vector
         target_array = raw_data[27]
-        plt.plot(target_array)
+        # plt.plot(target_array)
         plt.show()
 
         start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
@@ -206,6 +206,7 @@ if __name__ == "__main__":
         targets.append(t)
 
     result = count_elements(targets)
+    wake_count, nrem_count, rem_count = result[0], result[1], result[2]
 
     # # t = np.reshape(t, (-1, len(t)))
     # plt.plot(t)
