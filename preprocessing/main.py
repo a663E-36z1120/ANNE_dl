@@ -22,12 +22,16 @@ def read_data(path):
 
 
 def get_valid_indices(target_array, samp_rate):
+    first = 0
     for j in range(len(target_array)):
         if target_array[j] != target_array[j - 1] and target_array[j] < 6:
+            first = j
+            while first > samp_rate * WINDOW_LEN:
+                first -= samp_rate * WINDOW_LEN
             break
 
-    tail = (len(target_array) - j) % (WINDOW_LEN * samp_rate)
-    return j, len(target_array) - tail
+    tail = (len(target_array) - first) % (WINDOW_LEN * samp_rate)
+    return first, len(target_array) - tail
 
 
 def process_target(target_array, start_index, end_index):
@@ -36,8 +40,14 @@ def process_target(target_array, start_index, end_index):
     t = target_matrix[:, 0].astype(int)
 
     t = np.where((t == 2) | (t == 3), 1, t)
+
+    # temporarily classify the unknown class as Wake
+    t = np.where(t == 9, 0, t)
+
+    t = np.where(t > 4, 2, t)
     t = np.where(t == 4, 2, t)
-    t = np.where(t > 4, 1, t)
+
+    t = np.where(t > 4, 2, t)
 
     return t
 
@@ -176,7 +186,7 @@ def read_strings_from_json(filename):
 
 
 if __name__ == "__main__":
-    # main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
+    main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
     # edf_files = get_edf_files("/mnt/Common/data")
     # print(edf_files)
     # print(len(edf_files))
@@ -185,8 +195,6 @@ if __name__ == "__main__":
 
     paths = get_edf_files("/mnt/Common/data")
 
-    wake_count, nrem_count, rem_count = 0, 0, 0
-
     targets = []
     for path in paths:
         data = mne.io.read_raw_edf(path)
@@ -194,7 +202,7 @@ if __name__ == "__main__":
 
         # create target vector
         target_array = raw_data[27]
-        plt.plot(target_array)
+        # plt.plot(target_array)
         plt.show()
 
         start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
@@ -203,6 +211,7 @@ if __name__ == "__main__":
         targets.append(t)
 
     result = count_elements(targets)
+    wake_count, nrem_count, rem_count = result[0], result[1], result[2]
 
     # # t = np.reshape(t, (-1, len(t)))
     # plt.plot(t)

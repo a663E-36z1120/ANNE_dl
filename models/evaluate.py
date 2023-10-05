@@ -6,7 +6,8 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
-MODEL_PATH = "checkpoints/3-class.pt"
+
+MODEL_PATH = "checkpoints/es_20231005-152829.pt"
 
 
 def predict(model, loader, device):
