@@ -22,12 +22,16 @@ def read_data(path):
 
 
 def get_valid_indices(target_array, samp_rate):
+    first = 0
     for j in range(len(target_array)):
         if target_array[j] != target_array[j - 1] and target_array[j] < 6:
+            first = j
+            while first > samp_rate * WINDOW_LEN:
+                first -= samp_rate * WINDOW_LEN
             break
 
-    tail = (len(target_array) - j) % (WINDOW_LEN * samp_rate)
-    return j, len(target_array) - tail
+    tail = (len(target_array) - first) % (WINDOW_LEN * samp_rate)
+    return first, len(target_array) - tail
 
 
 def process_target(target_array, start_index, end_index):
