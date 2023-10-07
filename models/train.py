@@ -19,7 +19,7 @@ random.seed(42)
 torch.manual_seed(42)
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
-N_CLASSES = 3
+N_CLASSES = 2
 
 
 class CosineWithWarmupLR(LambdaLR):
@@ -50,9 +50,9 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
         device = "cpu"
 
     if N_CLASSES == 3:
-        xentropy_weight = torch.tensor([1 / 27.9 ** 1.5, 1 / 59.7 ** 1.5, 1 / 12.4 ** 1.5]).to(device)
+        xentropy_weight = torch.tensor([1 / 31.3 ** 1.25, 1 / 59.7 ** 1.25, 1 / 9.0 ** 1.25]).to(device)
     else:
-        xentropy_weight = torch.tensor([1 / 27 ** 1.75, 1 / 73 ** 1.75]).to(device)
+        xentropy_weight = torch.tensor([1 / 32 ** 1.75, 1 / 68 ** 1.75]).to(device)
 
     criterion = nn.CrossEntropyLoss(weight=xentropy_weight)
     train_accs = []
@@ -229,7 +229,7 @@ if __name__ == "__main__":
     # random.shuffle(train_list)
 
     # Build model
-    model = CRNN(num_classes=N_CLASSES, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=0, model='gru')
+    model = CRNN(num_classes=N_CLASSES, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=0, model='lstm')
     #
     # MODEL_PATH = ""
     # model = torch.load(MODEL_PATH)
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     # torch.onnx.export(model, dummy_input, "./model.onnx")
 
     # Train model:
-    learning_rate = 0.00075
+    learning_rate = 0.00025
     epochs = 400
     # dummy_input = torch.randn(4096, X.shape[1], 25*30)
     # dummy_input_freq = torch.randn(4096, X_freq.shape[1], X_freq.shape[2])
@@ -254,7 +254,7 @@ if __name__ == "__main__":
     # Train model:
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, betas=(0.9, 0.95), weight_decay=0.1)
     # Create the learning rate scheduler
-    scheduler = CosineWithWarmupLR(optimizer, warmup_epochs=15, max_epochs=250, max_lr=learning_rate, min_lr=0.000001)
+    scheduler = CosineWithWarmupLR(optimizer, warmup_epochs=15, max_epochs=150, max_lr=learning_rate, min_lr=0.000001)
     # scheduler = CyclicLR(optimizer, max_lr = 0.01, base_lr =0.0000001, step_size_up=15, step_size_down=20,
     # gamma=0.85, cycle_momentum=False, mode="triangular2") Run the training loop
     train_accs, test_accs, train_losses, test_losses, learning_rates = train_model(model, optimizer, train_dataloaders,

@@ -8,6 +8,7 @@ import numpy as np
 import mne
 import os
 import json
+import gc
 
 DATA_DIR = "/mnt/Common/Data"
 ML_SAMP_RATE = 25  # Hz
@@ -15,10 +16,15 @@ EDF_SAMP_RATE = 100  # Hz
 WINDOW_LEN = 30  # Seconds
 
 
-def read_data(path):
-    data = mne.io.read_raw_edf("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
-    raw_data = data.get_data()
-    return raw_data
+def plot_window(X, index=0):
+    """
+    Plot the index-th 30 second window in the data tensor X
+    """
+    fig, axs = plt.subplots(X.shape[1])
+    for i in range(len(axs)):
+        arr = X[index, i, :]
+        axs[i].plot(arr)
+    plt.show()
 
 
 def get_valid_indices(target_array, samp_rate):
@@ -76,7 +82,7 @@ def get_scalar_features():
     pass
 
 
-def main(path, inference=False):
+def main(path, inference=False, feature_engineering=False):
     data = mne.io.read_raw_edf(path)
     raw_data = data.get_data()
 
@@ -129,12 +135,16 @@ def main(path, inference=False):
 
     ecg = signals_map[2]
     ppg = signals_map[5]
+    x_acc, y_acc, z_acc = signals_map[7], signals_map[8], signals_map[9]
+    # chest_temp, limb_temp = signals_map[10], signals_map[11]
     enmo = signals_map[-1]
     z_angle = signals_map[-2]
     temp_diff = signals_map[-3]
     pat = signals_map[17]
     hr = signals_map[21]
     rr = signals_map[23]
+    spo2 = signals_map[22]
+
     X = np.concatenate((hr, pat, enmo, z_angle, rr, temp_diff), axis=1)
     X = signal.resample(X, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
 
@@ -146,6 +156,13 @@ def main(path, inference=False):
 
     X_freq = np.concatenate((ecg_freq, ppg_freq, x_freq, y_freq, z_freq), axis=1).astype('float32')
 
+    if feature_engineering:
+        X_raw = np.concatenate((ecg, ppg, enmo, spo2, hr, rr), axis=1).astype('float32')
+        X_raw = signal.resample(X_raw, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
+        gc.collect()
+        return X_raw, t
+
+    gc.collect()
     return X, X_freq, np.zeros(shape=(len(X), 1)), t
 
 

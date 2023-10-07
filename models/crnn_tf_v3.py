@@ -61,7 +61,7 @@ class CRNN(nn.Module):
         # Linear encoding layers
 
         self.flatten = nn.Flatten()
-        self.dropout1 = torch.nn.Dropout(0.4)
+        self.dropout1 = torch.nn.Dropout(0.5)
 
         # self.relui = nn.LeakyReLU(n_slope)
         # self.fci = nn.Linear(in_features=192, out_features=128)
@@ -91,7 +91,7 @@ class CRNN(nn.Module):
         self.fc1 = nn.Linear(in_features=106, out_features=64)
         torch.nn.init.xavier_uniform_(self.fc1.weight)
         self.relu5 = nn.LeakyReLU(n_slope)
-        self.dropout3 = torch.nn.Dropout(0.1)
+        self.dropout3 = torch.nn.Dropout(0.3)
 
         self.fc2 = nn.Linear(in_features=64, out_features=64)
         torch.nn.init.xavier_uniform_(self.fc2.weight)
@@ -177,9 +177,9 @@ class CRNN(nn.Module):
         x4 = self.relu5(x4)
         # x4 = self.dropout3(x4)
 
-        # x5 = self.fc2(x4)
-        # x5 = self.relu6(x5)
-        x5 = self.dropout4(x4)
+        x5 = self.fc2(x4)
+        x5 = self.relu6(x5)
+        x5 = self.dropout3(x4)
         x5 = self.fc3(x5)
 
         return x5
