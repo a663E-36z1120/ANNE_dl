@@ -70,11 +70,13 @@ if __name__ == "__main__":
 
     plt.plot(labels1, marker="x", linestyle="", alpha=0.75, markersize=15)
     plt.plot(preds1, marker=".", linestyle="", alpha=0.75, markersize=15)
-    plt.show()
+    plt.savefig("plot1.png")  # Specify the path and filename where you want to save the plot
+    plt.close()  # Close the plot to free up memory
 
     disp = ConfusionMatrixDisplay(confusion_matrix=conf_mat)
     disp.plot()
-    plt.show()
+    plt.savefig("confusion_matrix.png")  # Specify the path and filename where you want to save the plot
+    plt.close()  # Close the plot to free up memory
 
     # Visualize model
     dummy_input = torch.randn(4096, X.shape[1], 25 * 30).to(device)
