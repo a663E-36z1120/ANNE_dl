@@ -48,10 +48,10 @@ def process_target(target_array, start_index, end_index):
     t = np.where((t == 2) | (t == 3), 1, t)
     t = np.where(t == 4, 2, t)
     t = np.where(t > 4, 2, t)
-    # temporarily classify the unknown class as NREM
+    # temporarily classify the unknown class as Wake
 
     if t[0] == 9:
-        t[0] = 1
+        t[0] = 0
 
     mask = (t == 9)
     idx = np.where(~mask, np.arange(mask.shape[0]), 0)
