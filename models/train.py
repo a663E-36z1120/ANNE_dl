@@ -50,7 +50,7 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, wei
     else:
         device = "cpu"
 
-    weights = (weights / weights.sum()) * 100
+    weights = ((weights / weights.sum()) * 100).astype(int)
 
     if N_CLASSES == 3:
         #xentropy_weight = torch.tensor([1 / 27 ** 1.5, 1 / 62 ** 1.5, 1 / 11 ** 1.5]).to(device)
@@ -221,7 +221,7 @@ if __name__ == "__main__":
             # for binary classification
             if N_CLASSES == 2:
                 t = np.where(t == 2, 1, t)
-            weights += np.bincount(t)
+            weights += np.bincount(t[0])
             # print(t)
             dataset = ANNEDataset(X, X_freq, np.zeros(shape = (len(X), 1)), t, device)
             size = len(X)
