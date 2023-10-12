@@ -39,7 +39,8 @@ def save_strings_to_json(strings_list, filename):
     with open(filename, "w") as json_file:
         json.dump(data, json_file, indent=4)
 
-def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epochs=100, print_every=10):
+
+def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, weights, epochs=100, print_every=10):
 
     # Using GPUs in PyTorch is pretty straightforward
     if torch.cuda.is_available():
@@ -49,10 +50,13 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
     else:
         device = "cpu"
 
+    weights = ((weights / weights.sum()) * 100).astype(int)
+
     if N_CLASSES == 3:
-        xentropy_weight = torch.tensor([1 / 31.3 ** 1.25, 1 / 59.7 ** 1.25, 1 / 9.0 ** 1.25]).to(device)
+        #xentropy_weight = torch.tensor([1 / 27 ** 1.5, 1 / 62 ** 1.5, 1 / 11 ** 1.5]).to(device)
+        xentropy_weight = torch.tensor([1 / weights[0] ** 1.5, 1 / weights[1] ** 1.5, 1 / weights[2] ** 1.5]).to(device)
     else:
-        xentropy_weight = torch.tensor([1 / 32 ** 1.75, 1 / 68 ** 1.75]).to(device)
+        xentropy_weight = torch.tensor([1 / weights[0] ** 1.75, 1 / weights[1] ** 1.75]).to(device)
 
     criterion = nn.CrossEntropyLoss(weight=xentropy_weight)
     train_accs = []
@@ -210,12 +214,14 @@ if __name__ == "__main__":
 
     train_dataloaders = []
     valid_dataloaders = []
+    weights = np.array([0, 0, 0])
     for path in train_list:
         # try:
             X, X_freq, X_scl, t = main(path)
             # for binary classification
             if N_CLASSES == 2:
                 t = np.where(t == 2, 1, t)
+            weights += np.bincount(t[0])
             # print(t)
             dataset = ANNEDataset(X, X_freq, np.zeros(shape = (len(X), 1)), t, device)
             size = len(X)
@@ -261,7 +267,8 @@ if __name__ == "__main__":
                                                                                    valid_dataloaders,
                                                                                    scheduler,
                                                                                    epochs=epochs,
-                                                                                   print_every=1)
+                                                                                   print_every=1,
+                                                                                   weights=weights)
     model_scripted = torch.jit.script(model)
     model_scripted.save(f"checkpoints/model_{timestr}.pt")
     print("Model Saved")
