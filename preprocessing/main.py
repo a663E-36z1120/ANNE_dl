@@ -43,7 +43,16 @@ def process_target(target_array, start_index, end_index):
     t = np.where(t == 4, 2, t)
     t = np.where(t > 4, 2, t)
     # temporarily classify the unknown class as NREM
-    t = np.where(t == 9, 1, t)
+
+    if t[0] == 9:
+        t[0] = 1
+
+    mask = (t == 9)
+    idx = np.where(~mask, np.arange(mask.shape[0]), 0)
+    np.maximum.accumulate(idx, axis=0, out=idx)
+    t[mask] = t[idx[mask]]
+
+    #t = np.where(t == 9, 1, t)
     t = np.where(t > 4, 2, t)
 
     return t
