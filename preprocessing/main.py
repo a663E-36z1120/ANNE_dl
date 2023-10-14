@@ -3,7 +3,7 @@
 
 from matplotlib import pyplot as plt
 from scipy import signal
-# from feature_engineering.features import *
+from feature_engineering.features import ppg_entropy, ppg_pwr_sptr_scl, ppg_pwr_sptr_entp, hr_sclr, enmo_scl, zangle_scl
 import numpy as np
 import mne
 import os
@@ -150,20 +150,44 @@ def main(path, inference=False, feature_engineering=False):
 
     x_acc, y_acc, z_acc = signals_map[7], signals_map[8], signals_map[9]
 
+    # Frequency domain features
     ecg_freq, ppg_freq, x_freq, y_freq, z_freq, z_angle_freq = \
         get_frequency_features(ecg), get_frequency_features(ppg), get_frequency_features(x_acc), get_frequency_features(
             y_acc), get_frequency_features(z_acc), get_frequency_features(z_angle)
 
     X_freq = np.concatenate((ecg_freq, ppg_freq, x_freq, y_freq, z_freq), axis=1).astype('float32')
 
+
+    # Scalar domain features
+    ppg_resamp = signal.resample(ppg, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
+    ppg_entpy = ppg_entropy(ppg_resamp)
+    ppg_sptr_skw = ppg_pwr_sptr_scl(ppg_resamp)
+    ppg_sptr_entp = ppg_pwr_sptr_entp(ppg_resamp)
+    hr_resamp = signal.resample(ppg, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
+    hr_diff = hr_sclr(hr_resamp)
+    enmo_resamp = signal.resample(ppg, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
+    enmo_kurt = enmo_scl(enmo_resamp)
+    zangle_resamp = signal.resample(z_angle, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
+    zangle_sptr_entp = zangle_scl(zangle_resamp)
+
+    ppg_entpy = np.expand_dims(ppg_entpy, axis=1) / np.mean(ppg_entpy)
+    ppg_sptr_skw = np.expand_dims(ppg_sptr_skw, axis=1) / np.mean(ppg_sptr_skw)
+    ppg_sptr_entp = np.expand_dims(ppg_sptr_entp, axis=1) / np.mean(ppg_sptr_entp)
+    hr_diff = np.expand_dims(hr_diff, axis=1) / np.mean(hr_diff)
+    enmo_kurt = np.expand_dims(enmo_kurt, axis=1) / np.mean(enmo_kurt)
+    zangle_sptr_entp = np.expand_dims(zangle_sptr_entp, axis=1) / np.mean(zangle_sptr_entp)
+    X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff), axis=1).astype('float32')
+
+
+
     if feature_engineering:
-        X_raw = np.concatenate((ecg, ppg, enmo, spo2, hr, rr), axis=1).astype('float32')
+        X_raw = np.concatenate((ecg, ppg, enmo, z_angle, spo2, hr, rr), axis=1).astype('float32')
         X_raw = signal.resample(X_raw, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
         gc.collect()
         return X_raw, t
 
     gc.collect()
-    return X, X_freq, np.zeros(shape=(len(X), 1)), t
+    return X, X_freq, X_scl, t
 
 
 def get_edf_files(directory):
@@ -202,7 +226,7 @@ def read_strings_from_json(filename):
 
 
 if __name__ == "__main__":
-    main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
+    X, X_freq, X_scl, t = main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
     # edf_files = get_edf_files("/mnt/Common/data")
     # print(edf_files)
     # print(len(edf_files))
