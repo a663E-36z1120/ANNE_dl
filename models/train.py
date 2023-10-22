@@ -200,7 +200,7 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
     # Load data:
-    train_list = get_edf_files("/mnt/Common/data")
+    train_list = get_edf_files("/home/ed11235/scratch/data/")
 
     validation_list = random.sample(train_list, 20)
     print(validation_list)
