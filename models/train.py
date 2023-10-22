@@ -6,6 +6,8 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 
+import sys
+sys.path.append(".")
 from preprocessing.main import main, get_edf_files
 from crnn_tfs import CRNN
 from dataloader import ANNEDataset
