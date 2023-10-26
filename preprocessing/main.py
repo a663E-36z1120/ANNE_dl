@@ -3,6 +3,9 @@
 
 from matplotlib import pyplot as plt
 from scipy import signal
+
+import sys
+sys.path.append(".")
 from feature_engineering.features import ppg_entropy, ppg_pwr_sptr_scl, ppg_pwr_sptr_entp, hr_sclr, enmo_scl, zangle_scl
 import numpy as np
 import mne
