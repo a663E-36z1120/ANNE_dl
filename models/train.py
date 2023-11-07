@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import sys
-sys.path.append(".")
+import shutil
+import pyedflib
+sys.path.append("/home/alexhemo/scratch/temp1/ANNE_dl")
 from preprocessing.main import main, get_edf_files
 from crnn_tfs import CRNN
 from dataloader import ANNEDataset
@@ -21,7 +23,7 @@ random.seed(42)
 torch.manual_seed(42)
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
-N_CLASSES = 2
+N_CLASSES = 3
 
 
 class CosineWithWarmupLR(LambdaLR):
@@ -73,6 +75,8 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
     model.to(device)
     model.train()
 
+    overall_predictions = []
+
     for epoch in range(epochs):
         xentropy_loss_total = 0.
         correct = 0.
@@ -94,6 +98,7 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
 
                 # Calculate running average of accuracy
                 pred = torch.max(pred.data, 1)[1]
+                overall_predictions.append(pred.detach().cpu().numpy())
                 total += labels.size(0)
                 correct += (pred == labels.data).sum().item()
 
@@ -124,16 +129,16 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
             print("Epoch {}, Train acc: {:.2f}%, Test acc: {:.2f}%".format(epoch, accuracy * 100, test_acc * 100))
             print("Epoch {}, Train loss: {:.2f}, Test loss: {:.2f}".format(epoch, avg_xentropy_loss, test_loss))
 
-        train_accs.append(accuracy)
+        train_accs.append(accuracy) 
         test_accs.append(test_acc)
-        train_losses.append(avg_xentropy_loss)
+        train_losses.append(avg_xentropy_loss) 
         test_losses.append(test_loss)
 
         # Check for early stopping
         if test_loss < best_test_loss - min_delta:
             best_test_loss = test_loss
             model_scripted = torch.jit.script(model)
-            model_scripted.save(f"checkpoints/es_{timestr}.pt")
+            model_scripted.save(f"/home/alexhemo/scratch/temp1/ANNE_dl/models/checkpoints/es_{timestr}.pt")
             print("saved new model")
             counter = 0
         else:
@@ -142,7 +147,7 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
                 print("Early stopping triggered.")
                 break
 
-    return train_accs, test_accs, train_losses, test_losses, learning_rates
+    return train_accs, test_accs, train_losses, test_losses, learning_rates, overall_predictions
 
 
 def evaluate(model, loader, criterion, device):
@@ -200,7 +205,7 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
     # Load data:
-    train_list = get_edf_files("/home/ed11235/scratch/data/")
+    train_list = get_edf_files("/home/alexhemo/scratch/temp1/data")
 
     validation_list = random.sample(train_list, 20)
     print(validation_list)
@@ -248,7 +253,7 @@ if __name__ == "__main__":
     # Train model:
     learning_rate = 0.0025
     # learning_rate = 0.002
-    epochs = 400
+    epochs = 25 # was 400
     # dummy_input = torch.randn(4096, X.shape[1], 25*30)
     # dummy_input_freq = torch.randn(4096, X_freq.shape[1], X_freq.shape[2])
     # dummy_input_scl = torch.randn(4096, X_scl.shape[1], X_scl.shape[2])
@@ -261,7 +266,7 @@ if __name__ == "__main__":
     scheduler = CosineWithWarmupLR(optimizer, warmup_epochs=15, max_epochs=50, max_lr=learning_rate, min_lr=0.0002)
     # scheduler = CyclicLR(optimizer, max_lr = 0.01, base_lr =0.0000001, step_size_up=15, step_size_down=20,
     # gamma=0.85, cycle_momentum=False, mode="triangular2") Run the training loop
-    train_accs, test_accs, train_losses, test_losses, learning_rates = train_model(model, optimizer, train_dataloaders,
+    train_accs, test_accs, train_losses, test_losses, learning_rates, train_predicts = train_model(model, optimizer, train_dataloaders,
                                                                                    valid_dataloaders,
                                                                                    scheduler,
                                                                                    epochs=epochs,
@@ -269,6 +274,27 @@ if __name__ == "__main__":
     model_scripted = torch.jit.script(model)
     model_scripted.save(f"checkpoints/model_{timestr}.pt")
     print("Model Saved")
+
+    # append the predictions to copied training data
+    print("Writing to files")
+    print(train_predicts[0])
+    for i, path in enumerate(train_list):
+        newpath = "/home/alexhemo/scratch/temp1/data/results/" + path.split("/")[-1]
+        #shutil.copyfile(f"cp {path} {newpath}")
+        #with pyedflib.EdfWriter(newpath, ) as f:
+        signals, signal_headers, oldheader = pyedflib.highlevel.read_edf(path)
+        new_signals = signals.tolist()
+        for i in range(len(signal_headers)):
+            signal_headers[i]['physical_max'] = signal_headers[i]['physical_max'] + 1
+            signal_headers[i]['physical_min'] = signal_headers[i]['physical_min'] - 1
+        for i in range(len(new_signals)):
+            new_signals[i] = np.array(new_signals[i])
+        
+        padded_predicts = [val for val in train_predicts[i] for _ in range(30)]
+        new_signals.append(padded_predicts)
+        signal_headers.append({"label": "Predictions", "dimension": "", "sample_frequency": 1, 'physical_max': 9, 'physical_min': -2, 'digital_min': -2, 'digital_max': 9})
+        pyedflib.highlevel.write_edf(newpath, new_signals, signal_headers, oldheader)
+
 
     plt.plot(train_losses)
     plt.plot(test_losses)

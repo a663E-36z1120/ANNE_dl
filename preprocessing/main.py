@@ -3,9 +3,6 @@
 
 from matplotlib import pyplot as plt
 from scipy import signal
-
-import sys
-sys.path.append(".")
 from feature_engineering.features import ppg_entropy, ppg_pwr_sptr_scl, ppg_pwr_sptr_entp, hr_sclr, enmo_scl, zangle_scl
 import numpy as np
 import mne
@@ -229,15 +226,15 @@ def read_strings_from_json(filename):
 
 
 if __name__ == "__main__":
-    X, X_freq, X_scl, t = main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
+    X, X_freq, X_scl, t = main("/home/alexhemo/scratch/temp1/data/19-12-17-20_37_24.C823.L775.1-annotated.edf")
     # edf_files = get_edf_files("/mnt/Common/data")
     # print(edf_files)
     # print(len(edf_files))
     # sample = random.sample(edf_files, 30)
     # print(len(sample))
 
-    paths = get_edf_files("/mnt/Common/data")
-
+    #paths = get_edf_files("/mnt/Common/data")
+    paths = get_edf_files("/home/alexhemo/scratch/temp1/data")
     targets = []
     for path in paths:
         data = mne.io.read_raw_edf(path)
