@@ -75,7 +75,7 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
     model.to(device)
     model.train()
 
-    overall_predictions = []
+    overall_predictions = {}
 
     for epoch in range(epochs):
         xentropy_loss_total = 0.
@@ -98,7 +98,7 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
 
                 # Calculate running average of accuracy
                 pred = torch.max(pred.data, 1)[1]
-                overall_predictions.append(pred.detach().cpu().numpy())
+                overall_predictions[i] = pred.detach().cpu().numpy()
                 total += labels.size(0)
                 correct += (pred == labels.data).sum().item()
 
@@ -277,23 +277,26 @@ if __name__ == "__main__":
 
     # append the predictions to copied training data
     print("Writing to files")
-    print(train_predicts[0])
+    print(train_predicts)
     for i, path in enumerate(train_list):
-        newpath = "/home/alexhemo/scratch/temp1/data/results/" + path.split("/")[-1]
-        #shutil.copyfile(f"cp {path} {newpath}")
-        #with pyedflib.EdfWriter(newpath, ) as f:
-        signals, signal_headers, oldheader = pyedflib.highlevel.read_edf(path)
-        new_signals = signals.tolist()
-        for i in range(len(signal_headers)):
-            signal_headers[i]['physical_max'] = signal_headers[i]['physical_max'] + 1
-            signal_headers[i]['physical_min'] = signal_headers[i]['physical_min'] - 1
-        for i in range(len(new_signals)):
-            new_signals[i] = np.array(new_signals[i])
-        
-        padded_predicts = [val for val in train_predicts[i] for _ in range(30)]
-        new_signals.append(padded_predicts)
-        signal_headers.append({"label": "Predictions", "dimension": "", "sample_frequency": 1, 'physical_max': 9, 'physical_min': -2, 'digital_min': -2, 'digital_max': 9})
-        pyedflib.highlevel.write_edf(newpath, new_signals, signal_headers, oldheader)
+        try:
+            newpath = "/home/alexhemo/scratch/temp1/results/" + path.split("/")[-1]
+            #shutil.copyfile(f"cp {path} {newpath}")
+            #with pyedflib.EdfWriter(newpath, ) as f:
+            signals, signal_headers, oldheader = pyedflib.highlevel.read_edf(path)
+            new_signals = signals.tolist()
+            for i in range(len(signal_headers)):
+                signal_headers[i]['physical_max'] = signal_headers[i]['physical_max'] + 1
+                signal_headers[i]['physical_min'] = signal_headers[i]['physical_min'] - 1
+            for i in range(len(new_signals)):
+                new_signals[i] = np.array(new_signals[i])
+            
+            padded_predicts = [val for val in train_predicts[i] for _ in range(30)]
+            new_signals.append(np.array(padded_predicts))
+            signal_headers.append({"label": "Predictions", "dimension": "", "sample_frequency": 1, 'physical_max': 9, 'physical_min': -2, 'digital_min': -2, 'digital_max': 9})
+            pyedflib.highlevel.write_edf(newpath, new_signals, signal_headers, oldheader)
+        except:
+            continue
 
 
     plt.plot(train_losses)
