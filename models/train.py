@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 
-from preprocessing.main import main, get_edf_files
+from preprocessing.main import main, get_edf_files, read_strings_from_json
 from crnn_tfs import CRNN
 from dataloader import ANNEDataset
 
@@ -20,6 +20,7 @@ torch.manual_seed(42)
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
 N_CLASSES = 2
+DATA_DIR = "/media/a663e-36z/Common/Data/ANNE-data/"
 
 
 class CosineWithWarmupLR(LambdaLR):
@@ -196,14 +197,17 @@ if __name__ == "__main__":
     # Check gpu availability
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+    # validation_list = random.sample(train_list, 20)
+    # print(validation_list)
+    # save_strings_to_json(validation_list, "./validation.json")
+    validation_list = [DATA_DIR + file for file in read_strings_from_json("./validation.json")]
+    # print(validation_list)
+
     torch.cuda.empty_cache()
     # Load data:
-    train_list = get_edf_files("/mnt/Common/data")
+    train_list = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data/")
 
-    validation_list = random.sample(train_list, 20)
-    print(validation_list)
-    save_strings_to_json(validation_list, "./validation.json")
-    #
+
     # train_list = train_list_[:2]
     # print(train_list)
     # validation_list = [train_list_[1]]
