@@ -9,12 +9,19 @@ import mne
 import os
 import json
 import gc
+import pandas as pd
+import math
 
-DATA_DIR = "/mnt/Common/Data"
+DATA_DIR = "/media/a663e-36z/Common/Data/ANNE-data-expanded"
 ML_SAMP_RATE = 25  # Hz
 EDF_SAMP_RATE = 100  # Hz
 WINDOW_LEN = 30  # Seconds
 
+t_axis = np.arange(0, WINDOW_LEN, 1 / ML_SAMP_RATE)
+N = ML_SAMP_RATE * WINDOW_LEN
+
+meta_file = "/media/a663e-36z/Common/Data/ANNE-data-expanded/ANNE-PSG_metadata.csv"
+METADATA = pd.read_csv(meta_file)
 
 def plot_window(X, index=0):
     """
@@ -46,18 +53,16 @@ def process_target(target_array, start_index, end_index):
     t = target_matrix[:, 0].astype(int)
 
     t = np.where((t == 2) | (t == 3), 1, t)
-    t = np.where(t == 4, 2, t)
-    # temporarily classify the unknown class as Wake
 
-    if t[0] == 9:
+    if t[0] > 4:
         t[0] = 0
 
-    mask = (t == 9)
+    mask = (t > 4)
     idx = np.where(~mask, np.arange(mask.shape[0]), 0)
     np.maximum.accumulate(idx, axis=0, out=idx)
     t[mask] = t[idx[mask]]
 
-    t = np.where(t >= 4, 2, t)
+    t = np.where(t == 4, 2, t)
     return t
 
 
@@ -69,11 +74,24 @@ def process_time_series(series, start_index, end_index):
 
     return data_matrix
 
+def detrend(x, y, degree=5):
+    detrended = np.empty_like(y)
+
+    for i in range(len(y)):
+        params = np.polyfit(x, y[i], degree)
+        line = 0
+        for d in range(degree):
+            line += x ** (degree - d) * params[d]
+
+        line += params[-1]
+        detrended[i] = y[i] - line
+    return detrended
 
 def pwr_sptr(signals):
-    N = ML_SAMP_RATE * WINDOW_LEN
+    signals = detrend(t_axis, signals)
+
     power = np.fft.fftshift(abs(np.fft.fft(signals * 2 * np.hanning(N))))
-    power = power[:, N // 2:] * 1 / ML_SAMP_RATE
+    power = power[:, N // 2:N // 4 * 3] * 1 / ML_SAMP_RATE
     return power
 
 
@@ -81,6 +99,8 @@ def get_frequency_features(signals):
     signals = signal.resample(signals, ML_SAMP_RATE * WINDOW_LEN, axis=2)
     freq = np.expand_dims(pwr_sptr(np.squeeze(signals)), axis=1)
     freq = np.clip(freq, 0, np.mean(freq) + 4 * np.var(freq) ** 0.5) / (np.var(freq) ** 0.5)
+    # plt.plot(freq[100,0,:])
+    # plt.show()
     return freq
 
 
@@ -176,13 +196,19 @@ def main(path, inference=False, feature_engineering=False):
     zangle_resamp = signal.resample(z_angle, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
     zangle_sptr_entp = zangle_scl(zangle_resamp)
 
+    # Engineered Scalers
     ppg_entpy = np.expand_dims(ppg_entpy, axis=1) / np.mean(ppg_entpy)
     ppg_sptr_skw = np.expand_dims(ppg_sptr_skw, axis=1) / np.mean(ppg_sptr_skw)
     ppg_sptr_entp = np.expand_dims(ppg_sptr_entp, axis=1) / np.mean(ppg_sptr_entp)
     hr_diff = np.expand_dims(hr_diff, axis=1) / np.mean(hr_diff)
     enmo_kurt = np.expand_dims(enmo_kurt, axis=1) / np.mean(enmo_kurt)
     zangle_sptr_entp = np.expand_dims(zangle_sptr_entp, axis=1) / np.mean(zangle_sptr_entp)
-    X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff), axis=1).astype('float32')
+    # Meta Scalers
+    age, sex = extract_metadata(path)
+    age = np.full_like(ppg_entpy, age)
+    sex = np.full_like(ppg_entpy, sex)
+
+    X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff, age, sex), axis=1).astype('float32')
 
 
 
@@ -231,16 +257,56 @@ def read_strings_from_json(filename):
             return []
 
 
+def clean_filename(input_string, prefix=DATA_DIR+"/", suffix='-annotated.edf'):
+    # Check if the input string starts with the specified prefix
+    if input_string.startswith(prefix):
+        # Remove the prefix
+        input_string = input_string[len(prefix):]
+
+    # Check if the input string ends with the specified suffix
+    if input_string.endswith(suffix):
+        # Remove the suffix
+        input_string = input_string[:-len(suffix)]
+
+    return input_string
+
+def extract_metadata(path):
+    filename = clean_filename(path)
+    print(filename)
+    row_idx = (METADATA["filename"] == filename)
+    row = METADATA[row_idx]
+    age = row.iloc[0]["age"]
+    sex = row.iloc[0]["sex"]
+
+    print(f"age: {age}; sex: {sex}")
+    sex = str(sex)
+    if sex.lower() == "male":
+        sex = 1
+    elif sex.lower() == "female":
+        sex = 0
+    else:
+        sex = 0.5
+
+    if not math.isnan(age):
+        age = age / 100
+    else:
+        age = 0.5
+
+    return age, sex
+
+
+
 if __name__ == "__main__":
-    X, X_freq, X_scl, t = main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
+    # X, X_freq, X_scl, t = main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
     # edf_files = get_edf_files("/mnt/Common/data")
     # print(edf_files)
     # print(len(edf_files))
     # sample = random.sample(edf_files, 30)
     # print(len(sample))
 
-    paths = get_edf_files("/mnt/Common/data")
 
+
+    paths = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data-expanded/")
     targets = []
     for path in paths:
         data = mne.io.read_raw_edf(path)

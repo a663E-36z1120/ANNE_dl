@@ -32,6 +32,12 @@ class CRNN(nn.Module):
         torch.nn.init.xavier_uniform_(self.conv3.weight)
         self.bn3 = nn.BatchNorm1d(num_features=in_channels + in_channels)
         self.relu3 = nn.LeakyReLU(n_slope)
+
+        self.conv4 = nn.Conv1d(in_channels=in_channels + in_channels, out_channels=in_channels + in_channels,
+                               stride=1, kernel_size=7)
+        torch.nn.init.xavier_uniform_(self.conv4.weight)
+        self.bn4 = nn.BatchNorm1d(num_features=in_channels + in_channels)
+        self.relu4 = nn.LeakyReLU(n_slope)
         self.pool3 = nn.MaxPool1d(kernel_size=16)
 
         # Convolutional layers, freq domain
@@ -56,12 +62,19 @@ class CRNN(nn.Module):
         torch.nn.init.xavier_uniform_(self.conv3f.weight)
         self.bn3f = nn.BatchNorm1d(num_features=in_channels_f + in_channels_f)
         self.relu3f = nn.LeakyReLU(n_slope)
+
+
+        self.conv4f = nn.Conv1d(in_channels=in_channels_f + in_channels_f, out_channels=in_channels_f + in_channels_f,
+                                stride=1, kernel_size=7)
+        torch.nn.init.xavier_uniform_(self.conv4f.weight)
+        self.bn4f = nn.BatchNorm1d(num_features=in_channels_f + in_channels_f)
+        self.relu4f = nn.LeakyReLU(n_slope)
         self.pool3f = nn.MaxPool1d(kernel_size=16)
 
         # Linear encoding layers
 
         self.flatten = nn.Flatten()
-        self.dropout1 = torch.nn.Dropout(0.6)
+        self.dropout1 = torch.nn.Dropout(0.4)
 
         # self.relui = nn.LeakyReLU(n_slope)
         # self.fci = nn.Linear(in_features=192, out_features=128)
@@ -73,13 +86,13 @@ class CRNN(nn.Module):
 
         # Recurrent layers:
         if model == 'lstm':
-            self.rnn = nn.LSTM(input_size=74+in_channels_s, hidden_size=18, num_layers=1,
+            self.rnn = nn.LSTM(input_size=44+in_channels_s, hidden_size=18, num_layers=2,
                                bidirectional=True)
         elif model == 'gru':
-            self.rnn = nn.GRU(input_size=74+in_channels_s, hidden_size=18, num_layers=1,
+            self.rnn = nn.GRU(input_size=44+in_channels_s, hidden_size=18, num_layers=2,
                               bidirectional=True)
         elif model == 'rnn':
-            self.rnn = nn.RNN(input_size=74+in_channels_s, hidden_size=18, num_layers=1,
+            self.rnn = nn.RNN(input_size=44+in_channels_s, hidden_size=18, num_layers=2,
                               bidirectional=True)
         else:
             raise Exception("model is not one of 'lstm', 'gru', or 'rnn'.")
@@ -88,18 +101,21 @@ class CRNN(nn.Module):
         self.relu4 = nn.LeakyReLU(n_slope)
         self.dropout2 = torch.nn.Dropout(0.1)
 
-        self.fc1 = nn.Linear(in_features=110+in_channels_s, out_features=(64+in_channels_s))
+        self.fc1 = nn.Linear(in_features=80+in_channels_s, out_features=(64+in_channels_s))
         torch.nn.init.xavier_uniform_(self.fc1.weight)
         self.relu5 = nn.LeakyReLU(n_slope)
-        self.dropout3 = torch.nn.Dropout(0.3)
+        self.dropout3 = torch.nn.Dropout(0.2)
 
         self.fc2 = nn.Linear(in_features=(64+in_channels_s), out_features=(64+in_channels_s))
         torch.nn.init.xavier_uniform_(self.fc2.weight)
         self.relu6 = nn.LeakyReLU(n_slope)
-        self.dropout4 = torch.nn.Dropout(0.1)
+
+        self.fc3 = nn.Linear(in_features=(64 + in_channels_s), out_features=(16 + in_channels_s))
+        torch.nn.init.xavier_uniform_(self.fc2.weight)
+        self.relu7 = nn.LeakyReLU(n_slope)
 
 
-        self.fc3 = nn.Linear(in_features=64+in_channels_s, out_features=num_classes)
+        self.fc4 = nn.Linear(in_features=16+in_channels_s, out_features=num_classes)
         torch.nn.init.xavier_uniform_(self.fc3.weight)
 
     def forward(self, x, x_freq, x_scl):
@@ -122,6 +138,11 @@ class CRNN(nn.Module):
         x3 = self.conv3(x2)
         x3 = self.bn3(x3)
         x3 = self.relu3(x3)
+
+        x3 = self.conv4(x3)
+        x3 = self.bn4(x3)
+        x3 = self.relu4(x3)
+
         x3 = self.pool3(x3)
         # x3 = self.dropout2(x3)
 
@@ -148,6 +169,11 @@ class CRNN(nn.Module):
         x3f = self.conv3f(x2f)
         x3f = self.bn3f(x3f)
         x3f = self.relu3f(x3f)
+
+        x3f = self.conv4f(x3f)
+        x3f = self.bn4f(x3f)
+        x3f = self.relu4f(x3f)
+
         x3f = self.pool3f(x3f)
         # x3f = self.dropout2(x3f)
 
@@ -174,14 +200,18 @@ class CRNN(nn.Module):
         # Res from the CNN
 
         x4 = torch.cat([x4, torch.squeeze(x3)], dim=1)
-        # x4 = self.dropout2(x4)
+        x4 = self.dropout2(x4)
 
         x4 = self.fc1(x4)
         x4 = self.relu5(x4)
         # x4 = self.dropout3(x4)
 
         x4 = self.fc2(x4)
+        x4 =self.relu6(x4)
+        x4 = self.fc3(x4)
+
         x4 = self.dropout3(x4)
-        x5 = self.fc3(x4)
+        x4 = self.relu7(x4)
+        x5 = self.fc4(x4)
 
         return x5
