@@ -9,6 +9,8 @@ import mne
 import os
 import json
 import gc
+import pickle
+
 
 DATA_DIR = "/mnt/Common/Data"
 ML_SAMP_RATE = 25  # Hz
@@ -82,7 +84,13 @@ def get_scalar_features():
     pass
 
 
-def main(path, inference=False, feature_engineering=False):
+def main(path, inference=False, feature_engineering=False, save_path=None):
+    # Check if the preprocessed file exists
+    if save_path and os.path.exists(save_path):
+        with open(save_path, 'rb') as f:
+            X, X_freq, X_scl, t = pickle.load(f)
+        return X, X_freq, X_scl, t
+    
     data = mne.io.read_raw_edf(path)
     raw_data = data.get_data()
 
@@ -187,6 +195,13 @@ def main(path, inference=False, feature_engineering=False):
         return X_raw, t
 
     gc.collect()
+
+    # Save the data if save_path is provided
+    if save_path:
+        with open(save_path, 'wb') as f:
+            pickle.dump((X, X_freq, X_scl, t), f)
+        print(f"Saved to {save_path}.")
+
     return X, X_freq, X_scl, t
 
 

@@ -5,22 +5,27 @@ from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
+sys.path.append('/h/335/paulslss300/ANNE_dl')
 
 from preprocessing.main import main, get_edf_files, read_strings_from_json
 from crnn_tfs import CRNN
+# from crnn_tfs_transformer import CRNN
 from dataloader import ANNEDataset
 
 import json
 import math
 import time
 import random
+import os
 
 random.seed(42)
 torch.manual_seed(42)
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
-N_CLASSES = 2
-DATA_DIR = "/media/a663e-36z/Common/Data/ANNE-data/"
+N_CLASSES = 3
+DATA_DIR = "/h/335/paulslss300/data/"
+PREPROCESSED_DIR = "/h/335/paulslss300/data/preprocessed"
 
 
 class CosineWithWarmupLR(LambdaLR):
@@ -205,7 +210,7 @@ if __name__ == "__main__":
 
     torch.cuda.empty_cache()
     # Load data:
-    train_list = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data/")
+    train_list = get_edf_files("/h/335/paulslss300/data/")
 
 
     # train_list = train_list_[:2]
@@ -216,7 +221,11 @@ if __name__ == "__main__":
     valid_dataloaders = []
     for path in train_list:
         # try:
-            X, X_freq, X_scl, t = main(path)
+            basename = os.path.basename(path)
+            save_filename = f"{os.path.splitext(basename)[0]}_preprocessed.pkl"
+            save_path = os.path.join(PREPROCESSED_DIR, save_filename)
+            X, X_freq, X_scl, t = main(path, save_path=save_path)
+            print(f"Loaded: {save_filename}.")
             # for binary classification
             if N_CLASSES == 2:
                 t = np.where(t == 2, 1, t)
@@ -233,7 +242,8 @@ if __name__ == "__main__":
     # random.shuffle(train_list)
 
     # Build model
-    model = CRNN(num_classes=N_CLASSES, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=X_scl.shape[1], model='gru')
+    model = CRNN(num_classes=N_CLASSES, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=X_scl.shape[1], model='lstm')
+    # model = CRNN(num_classes=N_CLASSES, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=X_scl.shape[1])
     #
     # MODEL_PATH = ""
     # model = torch.load(MODEL_PATH)

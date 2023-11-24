@@ -1,4 +1,8 @@
 import torch
+
+import sys
+sys.path.append('/h/335/paulslss300/ANNE_dl')
+
 from preprocessing.main import main, read_strings_from_json
 import numpy as np
 from dataloader import ANNEDataset
@@ -6,7 +10,8 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
-MODEL_PATH = "checkpoints/es_20231005-152829.pt"
+
+MODEL_PATH = "checkpoints/model_20231123-134009.pt"
 
 
 def predict(model, loader, device):
@@ -40,7 +45,9 @@ if __name__ == "__main__":
     # device = "cpu"
 
     predict_loaders = []
-    for path in read_strings_from_json("./validation.json"):
+    DATA_DIR = "/h/335/paulslss300/data/"
+    validation_list = [DATA_DIR + file for file in read_strings_from_json("./validation.json")]
+    for path in validation_list:
         X, X_freq, X_scl, t = main(path)
         # t = np.where(t == 2, 1, t)
         dataset = ANNEDataset(X, X_freq, X_scl, t, device)
@@ -73,6 +80,7 @@ if __name__ == "__main__":
 
     disp = ConfusionMatrixDisplay(confusion_matrix=conf_mat)
     disp.plot()
+    plt.savefig("/h/335/paulslss300/ANNE_dl/models/cm_lstm")
     plt.show()
 
     # Visualize model
