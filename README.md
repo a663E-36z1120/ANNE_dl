@@ -37,6 +37,8 @@ All flags:\
 `-c {2, 3}`: use this flag to control whether to perform Wake-Sleep 2-class inference or Wake-NREM-REM 3-class inference.
 \
 `-v`: add this flag if you want an accompanying `.png` file to visualize the outputs.
+\
+`-e`: add this flag if you want to use the ensembled model for 3-class inference.
 
 ### Output Format
 The output `.csv` will contain a single column of integers in {0, 1, 2}, where 0 := Wake, 1 := NREM, and 2 := REM.
