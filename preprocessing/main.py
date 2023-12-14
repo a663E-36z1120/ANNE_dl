@@ -108,7 +108,7 @@ def get_scalar_features():
     pass
 
 
-def main(path, inference=False, feature_engineering=False, no_ppg=False):
+def main(path, inference=False, feature_engineering=False, no_ppg=False, save_path=None):
     data = mne.io.read_raw_edf(path)
     raw_data = data.get_data()
 
