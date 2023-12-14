@@ -19,7 +19,7 @@ random.seed(42)
 torch.manual_seed(42)
 timestr = time.strftime("%Y%m%d-%H%M%S")
 
-N_CLASSES = 2
+N_CLASSES = 3
 DATA_DIR = "/media/a663e-36z/Common/Data/ANNE-data/"
 
 
@@ -51,9 +51,9 @@ def train_model(model, optimizer, train_loaders, test_loaders, lr_scheduler, epo
         device = "cpu"
 
     if N_CLASSES == 3:
-        xentropy_weight = torch.tensor([1 / 31.3 ** 1.25, 1 / 59.7 ** 1.25, 1 / 9.0 ** 1.25]).to(device)
+        xentropy_weight = torch.tensor([1 / 33.1 ** 1.25, 1 / 58.7 ** 1.25, 1 / 8.2 ** 1.25]).to(device)
     else:
-        xentropy_weight = torch.tensor([1 / 32 ** 1.75, 1 / 68 ** 1.75]).to(device)
+        xentropy_weight = torch.tensor([1 / 31.3 ** 1.85, 1 / 68.7 ** 1.85]).to(device)
 
     criterion = nn.CrossEntropyLoss(weight=xentropy_weight)
     train_accs = []
@@ -197,15 +197,17 @@ if __name__ == "__main__":
     # Check gpu availability
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    # validation_list = random.sample(train_list, 20)
-    # print(validation_list)
-    # save_strings_to_json(validation_list, "./validation.json")
-    validation_list = [DATA_DIR + file for file in read_strings_from_json("./validation.json")]
+
+    # validation_list = [DATA_DIR + file for file in read_strings_from_json("./validation.json")]
     # print(validation_list)
 
     torch.cuda.empty_cache()
     # Load data:
-    train_list = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data/")
+    train_list = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data-expanded/")
+
+    validation_list = random.sample(train_list, 20)
+    # print(validation_list)
+    save_strings_to_json(validation_list, "./validation_new.json")
 
 
     # train_list = train_list_[:2]
@@ -233,7 +235,7 @@ if __name__ == "__main__":
     # random.shuffle(train_list)
 
     # Build model
-    model = CRNN(num_classes=N_CLASSES, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=X_scl.shape[1], model='gru')
+    model = CRNN(num_classes=N_CLASSES, in_channels=X.shape[1], in_channels_f=X_freq.shape[1], in_channels_s=X_scl.shape[1], model='lstm')
     #
     # MODEL_PATH = ""
     # model = torch.load(MODEL_PATH)
@@ -248,8 +250,8 @@ if __name__ == "__main__":
     # torch.onnx.export(model, dummy_input, "./model.onnx")
 
     # Train model:
-    learning_rate = 0.0025
-    # learning_rate = 0.002
+    # learning_rate = 0.00075
+    learning_rate = 0.002
     epochs = 400
     # dummy_input = torch.randn(4096, X.shape[1], 25*30)
     # dummy_input_freq = torch.randn(4096, X_freq.shape[1], X_freq.shape[2])
@@ -257,10 +259,10 @@ if __name__ == "__main__":
     # torch.onnx.export(model, dummy_input, "./model.onnx")
 
     # Train model:
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     # Create the learning rate scheduler
     # scheduler = CosineWithWarmupLR(optimizer, warmup_epochs=15, max_epochs=150, max_lr=learning_rate, min_lr=0.000001)
-    scheduler = CosineWithWarmupLR(optimizer, warmup_epochs=15, max_epochs=50, max_lr=learning_rate, min_lr=0.0002)
+    scheduler = CosineWithWarmupLR(optimizer, warmup_epochs=15, max_epochs=105, max_lr=learning_rate, min_lr=0.000002)
     # scheduler = CyclicLR(optimizer, max_lr = 0.01, base_lr =0.0000001, step_size_up=15, step_size_down=20,
     # gamma=0.85, cycle_momentum=False, mode="triangular2") Run the training loop
     train_accs, test_accs, train_losses, test_losses, learning_rates = train_model(model, optimizer, train_dataloaders,
