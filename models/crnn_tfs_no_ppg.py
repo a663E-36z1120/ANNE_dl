@@ -86,13 +86,13 @@ class CRNN(nn.Module):
 
         # Recurrent layers:
         if model == 'lstm':
-            self.rnn = nn.LSTM(input_size=44+in_channels_s, hidden_size=18, num_layers=2,
+            self.rnn = nn.LSTM(input_size=36+in_channels_s, hidden_size=18, num_layers=2,
                                bidirectional=True)
         elif model == 'gru':
-            self.rnn = nn.GRU(input_size=44+in_channels_s, hidden_size=18, num_layers=2,
+            self.rnn = nn.GRU(input_size=36+in_channels_s, hidden_size=18, num_layers=2,
                               bidirectional=True)
         elif model == 'rnn':
-            self.rnn = nn.RNN(input_size=44+in_channels_s, hidden_size=18, num_layers=2,
+            self.rnn = nn.RNN(input_size=36+in_channels_s, hidden_size=18, num_layers=2,
                               bidirectional=True)
         else:
             raise Exception("model is not one of 'lstm', 'gru', or 'rnn'.")
@@ -101,7 +101,7 @@ class CRNN(nn.Module):
         self.relu4 = nn.LeakyReLU(n_slope)
         self.dropout2 = torch.nn.Dropout(0.1)
 
-        self.fc1 = nn.Linear(in_features=80+in_channels_s, out_features=(64+in_channels_s))
+        self.fc1 = nn.Linear(in_features=72+in_channels_s, out_features=(64+in_channels_s))
         torch.nn.init.xavier_uniform_(self.fc1.weight)
         self.relu5 = nn.LeakyReLU(n_slope)
         self.dropout3 = torch.nn.Dropout(0.2)

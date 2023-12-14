@@ -10,9 +10,8 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
-
-MODEL_PATH = "checkpoints/model_20231123-134009.pt"
-
+MODEL_PATH = "checkpoints/3-class.pt"
+DATA_DIR = "/media/a663e-36z/Common/Data/ANNE-data-expanded/"
 
 def predict(model, loader, device):
     # Change model to 'eval' mode (BN uses moving mean/var).
@@ -45,10 +44,9 @@ if __name__ == "__main__":
     # device = "cpu"
 
     predict_loaders = []
-    DATA_DIR = "/h/335/paulslss300/data/"
-    validation_list = [DATA_DIR + file for file in read_strings_from_json("./validation.json")]
-    for path in validation_list:
-        X, X_freq, X_scl, t = main(path)
+    for file in read_strings_from_json("./validation_new.json"):
+        X, X_freq, X_scl, t = main(file)
+        # t = np.where(t == 1, 0, t)
         # t = np.where(t == 2, 1, t)
         dataset = ANNEDataset(X, X_freq, X_scl, t, device)
         size = len(X)
