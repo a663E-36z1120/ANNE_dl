@@ -108,7 +108,7 @@ def get_scalar_features():
     pass
 
 
-def main(path, inference=False, feature_engineering=False):
+def main(path, inference=False, feature_engineering=False, no_ppg=False):
     data = mne.io.read_raw_edf(path)
     raw_data = data.get_data()
 
@@ -171,7 +171,12 @@ def main(path, inference=False, feature_engineering=False):
     rr = signals_map[23]
     spo2 = signals_map[22]
 
-    X = np.concatenate((hr, pat, enmo, z_angle, rr, temp_diff), axis=1)
+    if no_ppg:
+        X = np.concatenate((hr, enmo, z_angle, rr, temp_diff), axis=1)
+    else:
+        X = np.concatenate((hr, pat, enmo, z_angle, rr, temp_diff), axis=1)
+
+
     X = signal.resample(X, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
 
     x_acc, y_acc, z_acc = signals_map[7], signals_map[8], signals_map[9]
@@ -181,7 +186,10 @@ def main(path, inference=False, feature_engineering=False):
         get_frequency_features(ecg), get_frequency_features(ppg), get_frequency_features(x_acc), get_frequency_features(
             y_acc), get_frequency_features(z_acc), get_frequency_features(z_angle)
 
-    X_freq = np.concatenate((ecg_freq, ppg_freq, x_freq, y_freq, z_freq), axis=1).astype('float32')
+    if no_ppg:
+        X_freq = np.concatenate((ecg_freq, x_freq, y_freq, z_freq), axis=1).astype('float32')
+    else:
+        X_freq = np.concatenate((ecg_freq, ppg_freq, x_freq, y_freq, z_freq), axis=1).astype('float32')
 
 
     # Scalar domain features
@@ -208,7 +216,11 @@ def main(path, inference=False, feature_engineering=False):
     age = np.full_like(ppg_entpy, age)
     sex = np.full_like(ppg_entpy, sex)
 
-    X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff, age, sex), axis=1).astype('float32')
+    if no_ppg:
+        X_scl = np.concatenate((enmo_kurt, zangle_sptr_entp, hr_diff, age, sex),
+                               axis=1).astype('float32')
+    else:
+        X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff, age, sex), axis=1).astype('float32')
 
 
 
@@ -297,41 +309,43 @@ def extract_metadata(path):
 
 
 if __name__ == "__main__":
-    # X, X_freq, X_scl, t = main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
-    # edf_files = get_edf_files("/mnt/Common/data")
-    # print(edf_files)
-    # print(len(edf_files))
-    # sample = random.sample(edf_files, 30)
-    # print(len(sample))
+    X, X_freq, X_scl, t = main("/media/a663e-36z/Common/Data/ANNE-data-expanded/23-09-26-19_33_55.C4408.L4087.674-annotated.edf")
+    fig, axs = plt.subplots(X_freq.shape[1], sharex=True)
+    print(X.shape)
+    for i in range(X_freq.shape[1]):
+        axs[i].plot(X_freq[989,i,:])
+
+    plt.show()
 
 
 
-    paths = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data-expanded/")
-    targets = []
-    for path in paths:
-        data = mne.io.read_raw_edf(path)
-        raw_data = data.get_data()
 
-        # create target vector
-        target_array = raw_data[27]
-        # plt.plot(target_array)
-        plt.show()
-
-        start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
-        t = process_target(target_array, start_index, end_index)
-
-        targets.append(t)
-
-    result = count_elements(targets)
-    wake_count, nrem_count, rem_count = result[0], result[1], result[2]
-
-    # # t = np.reshape(t, (-1, len(t)))
-    # plt.plot(t)
-    # plt.savefig(f"{path[:-4]}.png")
-    # plt.clf()
-
-    total = wake_count + rem_count + nrem_count
-    print(total)
-    print(f"wake: {wake_count / total}")
-    print(f"nrem: {nrem_count / total}")
-    print(f"rem: {rem_count / total}")
+    # paths = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data-expanded/")
+    # targets = []
+    # for path in paths:
+    #     data = mne.io.read_raw_edf(path)
+    #     raw_data = data.get_data()
+    #
+    #     # create target vector
+    #     target_array = raw_data[27]
+    #     plt.plot(target_array)
+    #     plt.show()
+    #
+    #     start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
+    #     t = process_target(target_array, start_index, end_index)
+    #
+    #     targets.append(t)
+    #
+    # result = count_elements(targets)
+    # wake_count, nrem_count, rem_count = result[0], result[1], result[2]
+    #
+    # # # t = np.reshape(t, (-1, len(t)))
+    # # plt.plot(t)
+    # # plt.savefig(f"{path[:-4]}.png")
+    # # plt.clf()
+    #
+    # total = wake_count + rem_count + nrem_count
+    # print(total)
+    # print(f"wake: {wake_count / total}")
+    # print(f"nrem: {nrem_count / total}")
+    # print(f"rem: {rem_count / total}")
