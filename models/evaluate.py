@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
-MODEL_PATH = "checkpoints/3-class.pt"
+MODEL_PATH = "checkpoints/es_20231218-213916.pt"
 DATA_DIR = "/media/a663e-36z/Common/Data/ANNE-data-expanded/"
 
 def predict(model, loader, device):
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     # device = "cpu"
 
     predict_loaders = []
-    for file in read_strings_from_json("./validation_new.json"):
+    for file in read_strings_from_json("test.json"):
         X, X_freq, X_scl, t = main(file)
         # t = np.where(t == 1, 0, t)
         # t = np.where(t == 2, 1, t)

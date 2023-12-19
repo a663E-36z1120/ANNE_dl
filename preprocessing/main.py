@@ -3,7 +3,7 @@
 
 from matplotlib import pyplot as plt
 from scipy import signal
-from feature_engineering.features import ppg_entropy, ppg_pwr_sptr_scl, ppg_pwr_sptr_entp, hr_sclr, enmo_scl, zangle_scl
+from feature_engineering.features import ppg_entropy, ppg_pwr_sptr_scl, ppg_pwr_sptr_entp, hr_sclr, enmo_scl, zangle_scl, sqi_avg
 import numpy as np
 import mne
 import os
@@ -127,8 +127,8 @@ def main(path, inference=False, feature_engineering=False, no_ppg=False, save_pa
 
     # create feature matrices
 
-    ecg, ppg, x_acc, y_acc, z_acc, chest_temp, limb_temp, pat, hr, spo2, rr = \
-        None, None, raw_data[7], raw_data[8], raw_data[9], raw_data[10], raw_data[11], None, None, None, None
+    ecg, ppg, x_acc, y_acc, z_acc, chest_temp, limb_temp, pat, hr, spo2, rr, ecg_sqi, ppg_sqi = \
+        None, None, raw_data[7], raw_data[8], raw_data[9], raw_data[10], raw_data[11], None, None, None, None, None, None
 
     enmo = np.sqrt(x_acc ** 2 + y_acc ** 2 + z_acc ** 2) - 1
     z_angle = (np.arctan(z_acc / (np.sqrt(np.power(x_acc, 2) + np.power(y_acc, 2))))) / (np.pi / 180)
@@ -136,8 +136,8 @@ def main(path, inference=False, feature_engineering=False, no_ppg=False, save_pa
     temp_diff = chest_temp - limb_temp
 
     signals_map = {
-        2: ecg, 5: ppg, 7: x_acc, 8: y_acc, 9: z_acc, 10: chest_temp, 11: limb_temp,
-        17: pat, 21: hr, 22: spo2, 23: rr,
+        1: ecg, 5: ppg, 7: x_acc, 8: y_acc, 9: z_acc, 10: chest_temp, 11: limb_temp,
+        17: pat, 21: hr, 22: spo2, 23: rr, 3: ecg_sqi, 6: ppg_sqi,
         -1: enmo, -2: z_angle, -3: temp_diff
     }
     #  02: ecg processed -
@@ -160,8 +160,9 @@ def main(path, inference=False, feature_engineering=False, no_ppg=False, save_pa
         signals = process_time_series(signals, start_index, end_index)
         signals_map[index] = signals
 
-    ecg = signals_map[2]
+    ecg = signals_map[1]
     ppg = signals_map[5]
+    ecg_sqi, ppg_sqi = signals_map[3], signals_map[6]
     x_acc, y_acc, z_acc = signals_map[7], signals_map[8], signals_map[9]
     # chest_temp, limb_temp = signals_map[10], signals_map[11]
     enmo = signals_map[-1]
@@ -204,14 +205,17 @@ def main(path, inference=False, feature_engineering=False, no_ppg=False, save_pa
     enmo_kurt = enmo_scl(enmo_resamp)
     zangle_resamp = signal.resample(z_angle, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
     zangle_sptr_entp = zangle_scl(zangle_resamp)
+    ppg_sqi_avg = sqi_avg(ppg_sqi)
+    ecg_sqi_avg = sqi_avg(ecg_sqi)
 
-    # Engineered Scalers
     ppg_entpy = np.expand_dims(ppg_entpy, axis=1) / np.mean(ppg_entpy)
     ppg_sptr_skw = np.expand_dims(ppg_sptr_skw, axis=1) / np.mean(ppg_sptr_skw)
     ppg_sptr_entp = np.expand_dims(ppg_sptr_entp, axis=1) / np.mean(ppg_sptr_entp)
     hr_diff = np.expand_dims(hr_diff, axis=1) / np.mean(hr_diff)
     enmo_kurt = np.expand_dims(enmo_kurt, axis=1) / np.mean(enmo_kurt)
     zangle_sptr_entp = np.expand_dims(zangle_sptr_entp, axis=1) / np.mean(zangle_sptr_entp)
+    ecg_sqi_avg = np.expand_dims(ecg_sqi_avg, axis=1)
+    ppg_sqi_avg = np.expand_dims(ppg_sqi_avg, axis=1)
     # Meta Scalers
     age, sex = extract_metadata(path)
     age = np.full_like(ppg_entpy, age)
@@ -221,7 +225,7 @@ def main(path, inference=False, feature_engineering=False, no_ppg=False, save_pa
         X_scl = np.concatenate((enmo_kurt, zangle_sptr_entp, hr_diff, age, sex),
                                axis=1).astype('float32')
     else:
-        X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff, age, sex), axis=1).astype('float32')
+        X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff, ppg_sqi_avg, ecg_sqi_avg, age, sex), axis=1).astype('float32')
 
 
 
