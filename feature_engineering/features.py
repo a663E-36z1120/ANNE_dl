@@ -47,5 +47,8 @@ def zangle_scl(zangle):
     return stats.entropy(pwr_sptr(np.squeeze(zangle)), axis=-1)
 
 
+def sqi_avg(sqi):
+    return np.mean(np.squeeze(sqi), axis=-1)
+
 def system(v, delta):
     return 2 * delta * np.sin(2 * np.pi * v * delta) / (2 * np.pi * v * delta)
