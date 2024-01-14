@@ -21,8 +21,6 @@ WINDOW_LEN = 30  # Seconds
 t_axis = np.arange(0, WINDOW_LEN, 1 / ML_SAMP_RATE)
 N = ML_SAMP_RATE * WINDOW_LEN
 
-meta_file = "/media/a663e-36z/Common/Data/ANNE-data-expanded/ANNE-PSG_metadata.csv"
-METADATA = pd.read_csv(meta_file)
 
 def plot_window(X, index=0):
     """
@@ -51,19 +49,24 @@ def get_valid_indices(target_array, samp_rate):
 def process_target(target_array, start_index, end_index):
     target_array = target_array[start_index:end_index]
     target_matrix = np.reshape(target_array, (-1, EDF_SAMP_RATE * WINDOW_LEN))
-    t = target_matrix[:, 0].astype(int)
+    t = np.round(target_matrix[:, 0]).astype(int)
 
-    t = np.where((t == 2) | (t == 3), 1, t)
 
-    if t[0] > 4:
+    t = np.where((t == 2) | (t == 3) | (t == 4), 1, t)
+    t = np.where(t == 5, 2, t)
+
+    # plt.plot(t)
+    # plt.show()
+
+    if t[0] > 5:
         t[0] = 0
 
-    mask = (t > 4)
+    mask = (t > 5)
     idx = np.where(~mask, np.arange(mask.shape[0]), 0)
     np.maximum.accumulate(idx, axis=0, out=idx)
     t[mask] = t[idx[mask]]
 
-    t = np.where(t == 4, 2, t)
+
     return t
 
 
@@ -109,7 +112,7 @@ def get_scalar_features():
     pass
 
 
-def main(path, inference=False, feature_engineering=False, no_ppg=False, save_path=None):
+def main(path, data_dir, inference=False, feature_engineering=False, no_ppg=False, save_path=None):
     data = mne.io.read_raw_edf(path)
     raw_data = data.get_data()
 
@@ -217,7 +220,7 @@ def main(path, inference=False, feature_engineering=False, no_ppg=False, save_pa
     ecg_sqi_avg = np.expand_dims(ecg_sqi_avg, axis=1)
     ppg_sqi_avg = np.expand_dims(ppg_sqi_avg, axis=1)
     # Meta Scalers
-    age, sex = extract_metadata(path)
+    age, sex = extract_metadata(path, data_dir)
     age = np.full_like(ppg_entpy, age)
     sex = np.full_like(ppg_entpy, sex)
 
@@ -281,26 +284,40 @@ def read_strings_from_json(filename):
             return []
 
 
-def clean_filename(input_string, prefix=DATA_DIR+"/", suffix='-annotated.edf'):
-    # Check if the input string starts with the specified prefix
-    if input_string.startswith(prefix):
-        # Remove the prefix
-        input_string = input_string[len(prefix):]
+def clean_filename(input_string, suffixes=['-features.edf', '-annotated.edf']):
+    # Find the last occurrence of "/"
+    last_slash_index = input_string.rfind("/")
 
-    # Check if the input string ends with the specified suffix
-    if input_string.endswith(suffix):
-        # Remove the suffix
-        input_string = input_string[:-len(suffix)]
+    # Check if the last slash is found
+    if last_slash_index != -1:
+        # Extract the substring between the last "/" and the suffix
+        result = input_string[last_slash_index + 1:]
 
-    return input_string
+        # Check if the extracted substring ends with the specified suffix
+        for suffix in suffixes:
+            if result.endswith(suffix):
+                return result[:-(len(suffix))]
+        return "suffix not found"
 
-def extract_metadata(path):
+    else:
+        return "No slash found in the input string"
+
+def extract_metadata(path, data_dir):
     filename = clean_filename(path)
+    meta_file = data_dir + "ANNE-PSG_metadata.csv"
+    metadata = pd.read_csv(meta_file)
     print(filename)
-    row_idx = (METADATA["filename"] == filename)
-    row = METADATA[row_idx]
-    age = row.iloc[0]["age"]
-    sex = row.iloc[0]["sex"]
+    try:
+        row_idx = (metadata["file"] == filename)
+
+        row = metadata[row_idx]
+        age = row.iloc[0]["age"]
+        sex = row.iloc[0]["sex"]
+    except:
+        row_idx = (metadata["filename"] == filename)
+        row = metadata[row_idx]
+        age = row.iloc[0]["age"]
+        sex = row.iloc[0]["sex"]
 
     print(f"age: {age}; sex: {sex}")
     sex = str(sex)
@@ -321,43 +338,50 @@ def extract_metadata(path):
 
 
 if __name__ == "__main__":
-    X, X_freq, X_scl, t = main("/media/a663e-36z/Common/Data/ANNE-data-expanded/23-09-26-19_33_55.C4408.L4087.674-annotated.edf")
-    fig, axs = plt.subplots(X_freq.shape[1], sharex=True)
-    print(X.shape)
-    for i in range(X_freq.shape[1]):
-        axs[i].plot(X_freq[989,i,:])
+    # X, X_freq, X_scl, t = main("/media/a663e-36z/Common/Data/ANNE-data-expanded/23-09-26-19_33_55.C4408.L4087.674-annotated.edf", "/media/a663e-36z/Common/Data/ANNE-data-expanded/")
+    # fig, axs = plt.subplots(X_freq.shape[1], sharex=True)
+    # print(X.shape)
+    # for i in range(X_freq.shape[1]):
+    #     axs[i].plot(X_freq[989,i,:])
+    # plt.show()
+    # plt.plot(t)
+    # plt.show()
 
-    plt.show()
 
 
 
+    paths = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data-expanded/")
+    targets = []
+    for path in paths:
+        data = mne.io.read_raw_edf(path)
+        raw_data = data.get_data()
 
-    # paths = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data-expanded/")
-    # targets = []
-    # for path in paths:
-    #     data = mne.io.read_raw_edf(path)
-    #     raw_data = data.get_data()
-    #
-    #     # create target vector
-    #     target_array = raw_data[27]
-    #     plt.plot(target_array)
-    #     plt.show()
-    #
-    #     start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
-    #     t = process_target(target_array, start_index, end_index)
-    #
-    #     targets.append(t)
-    #
-    # result = count_elements(targets)
-    # wake_count, nrem_count, rem_count = result[0], result[1], result[2]
-    #
-    # # # t = np.reshape(t, (-1, len(t)))
-    # # plt.plot(t)
-    # # plt.savefig(f"{path[:-4]}.png")
-    # # plt.clf()
-    #
-    # total = wake_count + rem_count + nrem_count
-    # print(total)
-    # print(f"wake: {wake_count / total}")
-    # print(f"nrem: {nrem_count / total}")
-    # print(f"rem: {rem_count / total}")
+        # create target vector
+        target_array = raw_data[27]
+        plt.plot(target_array)
+        plt.title(path)
+        plt.show()
+
+        start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
+
+        t = process_target(target_array, start_index, end_index)
+        plt.plot(t)
+        plt.title(path)
+        plt.show()
+
+
+        targets.append(t)
+
+    result = count_elements(targets)
+    wake_count, nrem_count, rem_count = result[0], result[1], result[2]
+
+    # # t = np.reshape(t, (-1, len(t)))
+    # plt.plot(t)
+    # plt.savefig(f"{path[:-4]}.png")
+    # plt.clf()
+
+    total = wake_count + rem_count + nrem_count
+    print(total)
+    print(f"wake: {wake_count / total}")
+    print(f"nrem: {nrem_count / total}")
+    print(f"rem: {rem_count / total}")

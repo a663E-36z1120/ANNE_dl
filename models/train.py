@@ -211,7 +211,7 @@ if __name__ == "__main__":
 
     validation_list = random.sample(train_list, 20)
     # print(validation_list)
-    save_strings_to_json(validation_list, "./validation_new.json")
+    save_strings_to_json(validation_list, "validation.json")
 
 
     # train_list = train_list_[:2]
