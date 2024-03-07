@@ -1,23 +1,26 @@
 # Code for integrating raw data into appropriate formats for later use
 # @author: Andrew H. Zhang
 
+
 from matplotlib import pyplot as plt
 from scipy import signal
+
+import sys
+sys.path.append(".")
 from feature_engineering.features import ppg_entropy, ppg_pwr_sptr_scl, ppg_pwr_sptr_entp, hr_sclr, enmo_scl, zangle_scl, sqi_avg
 import numpy as np
+import pandas as pd
+import math
 import mne
 import os
 import json
 import gc
-import pandas as pd
-import math
-import pickle
 
-DATA_DIR = "/media/a663e-36z/Common/Data/ANNE-data-expanded"
+DATA_DIR = "/scratch/alexhemo/data/"
 ML_SAMP_RATE = 25  # Hz
 EDF_SAMP_RATE = 100  # Hz
 WINDOW_LEN = 30  # Seconds
-
+ 
 t_axis = np.arange(0, WINDOW_LEN, 1 / ML_SAMP_RATE)
 N = ML_SAMP_RATE * WINDOW_LEN
 
@@ -49,15 +52,18 @@ def get_valid_indices(target_array, samp_rate):
 def process_target(target_array, start_index, end_index):
     target_array = target_array[start_index:end_index]
     target_matrix = np.reshape(target_array, (-1, EDF_SAMP_RATE * WINDOW_LEN))
-    t = np.round(target_matrix[:, 0]).astype(int)
+    t = target_matrix[:, 0].astype(int)
 
+    t = np.where((t == 2) | (t == 3), 1, t)
+    # temporarily classify the unknown class as Wake
+    t = np.where(t == 9, 0, t)
 
-    t = np.where((t == 2) | (t == 3) | (t == 4), 1, t)
-    t = np.where(t == 5, 2, t)
+    t = np.where(t > 4, 2, t)
+    t = np.where(t == 4, 2, t)
 
-    # plt.plot(t)
-    # plt.show()
-
+    t = np.where(t > 4, 2, t)
+    
+    # Could be the cause of scipy hanging
     if t[0] > 5:
         t[0] = 0
 
@@ -65,12 +71,34 @@ def process_target(target_array, start_index, end_index):
     idx = np.where(~mask, np.arange(mask.shape[0]), 0)
     np.maximum.accumulate(idx, axis=0, out=idx)
     t[mask] = t[idx[mask]]
+    
+    # transition class 
+    trans1 = False
+    if trans1: 
+        t0 = np.copy(t)
+        t1 = np.copy(t)
+        t2 = np.copy(t)
 
+        t1 = np.concatenate((np.array([0]), t1))
+        t2 = np.concatenate((t2, np.array([0])))
+ 
+        t3 = t2 - t1
+        t4 = t3[1:]
 
+        t0 = np.where(t4 != 0, 3, t0) 
+        t0 = np.where(t0 != 3, 0, t0)
+        t0 = np.where(t0 == 3, 1, t0)
+        
+        # pre & post transition state
+        #t5 = np.concatenate((t0, np.array([0])))
+        #t5 = t5[1:]
+        
+        #t0 = np.where(t5 == 1, 2, t0)
+        
+        t = [t, t0]
+    
+        
     return t
-
-
-
 
 def process_time_series(series, start_index, end_index):
     series = (series - series.mean()) / np.sqrt(series.var())
@@ -80,22 +108,22 @@ def process_time_series(series, start_index, end_index):
 
 def detrend(x, y, degree=5):
     detrended = np.empty_like(y)
-
+    
     for i in range(len(y)):
         params = np.polyfit(x, y[i], degree)
         line = 0
         for d in range(degree):
             line += x ** (degree - d) * params[d]
-
+            
         line += params[-1]
         detrended[i] = y[i] - line
     return detrended
 
-def pwr_sptr(signals):
-    signals = detrend(t_axis, signals)
 
+def pwr_sptr(signals):
+    # signals = detrend(t_axis, signals)
     power = np.fft.fftshift(abs(np.fft.fft(signals * 2 * np.hanning(N))))
-    power = power[:, N // 2:N // 4 * 3] * 1 / ML_SAMP_RATE
+    power = power[:, N // 2:] * 1 / ML_SAMP_RATE
     return power
 
 
@@ -103,8 +131,6 @@ def get_frequency_features(signals):
     signals = signal.resample(signals, ML_SAMP_RATE * WINDOW_LEN, axis=2)
     freq = np.expand_dims(pwr_sptr(np.squeeze(signals)), axis=1)
     freq = np.clip(freq, 0, np.mean(freq) + 4 * np.var(freq) ** 0.5) / (np.var(freq) ** 0.5)
-    # plt.plot(freq[100,0,:])
-    # plt.show()
     return freq
 
 
@@ -112,7 +138,8 @@ def get_scalar_features():
     pass
 
 
-def main(path, data_dir, inference=False, feature_engineering=False, no_ppg=False, save_path=None):
+def main(path, inference=False, feature_engineering=False, no_ppg=False, save_path=None):
+    data_dir = DATA_DIR
     data = mne.io.read_raw_edf(path)
     raw_data = data.get_data()
 
@@ -129,7 +156,7 @@ def main(path, data_dir, inference=False, feature_engineering=False, no_ppg=Fals
     t = np.reshape(t, (-1, len(t)))
 
     # create feature matrices
-
+ 
     ecg, ppg, x_acc, y_acc, z_acc, chest_temp, limb_temp, pat, hr, spo2, rr, ecg_sqi, ppg_sqi = \
         None, None, raw_data[7], raw_data[8], raw_data[9], raw_data[10], raw_data[11], None, None, None, None, None, None
 
@@ -142,10 +169,10 @@ def main(path, data_dir, inference=False, feature_engineering=False, no_ppg=Fals
         1: ecg, 5: ppg, 7: x_acc, 8: y_acc, 9: z_acc, 10: chest_temp, 11: limb_temp,
         17: pat, 21: hr, 22: spo2, 23: rr, 3: ecg_sqi, 6: ppg_sqi,
         -1: enmo, -2: z_angle, -3: temp_diff
-    }
+    } 
     #  02: ecg processed -
     #  05: ppg processed -
-    #  07 08 09: x, y, z acceleration -
+    #  07 08 09: x, y, z acceleration  -
     #  10: chest temp -
     #  11: limb temp -
     #  17: PAT detrend -
@@ -163,7 +190,7 @@ def main(path, data_dir, inference=False, feature_engineering=False, no_ppg=Fals
         signals = process_time_series(signals, start_index, end_index)
         signals_map[index] = signals
 
-    ecg = signals_map[1]
+    ecg = signals_map[1] # was 2
     ppg = signals_map[5]
     ecg_sqi, ppg_sqi = signals_map[3], signals_map[6]
     x_acc, y_acc, z_acc = signals_map[7], signals_map[8], signals_map[9]
@@ -180,8 +207,6 @@ def main(path, data_dir, inference=False, feature_engineering=False, no_ppg=Fals
         X = np.concatenate((hr, enmo, z_angle, rr, temp_diff), axis=1)
     else:
         X = np.concatenate((hr, pat, enmo, z_angle, rr, temp_diff), axis=1)
-
-
     X = signal.resample(X, ML_SAMP_RATE * WINDOW_LEN, axis=2).astype('float32')
 
     x_acc, y_acc, z_acc = signals_map[7], signals_map[8], signals_map[9]
@@ -217,19 +242,19 @@ def main(path, data_dir, inference=False, feature_engineering=False, no_ppg=Fals
     hr_diff = np.expand_dims(hr_diff, axis=1) / np.mean(hr_diff)
     enmo_kurt = np.expand_dims(enmo_kurt, axis=1) / np.mean(enmo_kurt)
     zangle_sptr_entp = np.expand_dims(zangle_sptr_entp, axis=1) / np.mean(zangle_sptr_entp)
+    X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff), axis=1).astype('float32')
     ecg_sqi_avg = np.expand_dims(ecg_sqi_avg, axis=1)
     ppg_sqi_avg = np.expand_dims(ppg_sqi_avg, axis=1)
-    # Meta Scalers
+    
     age, sex = extract_metadata(path, data_dir)
     age = np.full_like(ppg_entpy, age)
     sex = np.full_like(ppg_entpy, sex)
-
+    
     if no_ppg:
         X_scl = np.concatenate((enmo_kurt, zangle_sptr_entp, hr_diff, age, sex),
                                axis=1).astype('float32')
     else:
         X_scl = np.concatenate((ppg_entpy, ppg_sptr_skw, ppg_sptr_entp, enmo_kurt, zangle_sptr_entp, hr_diff, ppg_sqi_avg, ecg_sqi_avg, age, sex), axis=1).astype('float32')
-
 
 
     if feature_engineering:
@@ -239,13 +264,6 @@ def main(path, data_dir, inference=False, feature_engineering=False, no_ppg=Fals
         return X_raw, t
 
     gc.collect()
-
-    # Save the data if save_path is provided
-    if save_path:
-        with open(save_path, 'wb') as f:
-            pickle.dump((X, X_freq, X_scl, t), f)
-        print(f"Saved to {save_path}.")
-
     return X, X_freq, X_scl, t
 
 
@@ -282,7 +300,6 @@ def read_strings_from_json(filename):
             return data["strings"]
         else:
             return []
-
 
 def clean_filename(input_string, suffixes=['-features.edf', '-annotated.edf']):
     # Find the last occurrence of "/"
@@ -336,21 +353,16 @@ def extract_metadata(path, data_dir):
     return age, sex
 
 
-
 if __name__ == "__main__":
-    # X, X_freq, X_scl, t = main("/media/a663e-36z/Common/Data/ANNE-data-expanded/23-09-26-19_33_55.C4408.L4087.674-annotated.edf", "/media/a663e-36z/Common/Data/ANNE-data-expanded/")
-    # fig, axs = plt.subplots(X_freq.shape[1], sharex=True)
-    # print(X.shape)
-    # for i in range(X_freq.shape[1]):
-    #     axs[i].plot(X_freq[989,i,:])
-    # plt.show()
-    # plt.plot(t)
-    # plt.show()
+    X, X_freq, X_scl, t = main("/mnt/Common/Downloads/23-03-22-21_41_32.C4359.L3786.570-annotated.edf")
+    # edf_files = get_edf_files("/mnt/Common/data")
+    # print(edf_files)
+    # print(len(edf_files))
+    # sample = random.sample(edf_files, 30)
+    # print(len(sample))
 
+    paths = get_edf_files("/mnt/Common/data")
 
-
-
-    paths = get_edf_files("/media/a663e-36z/Common/Data/ANNE-data-expanded/")
     targets = []
     for path in paths:
         data = mne.io.read_raw_edf(path)
@@ -358,17 +370,11 @@ if __name__ == "__main__":
 
         # create target vector
         target_array = raw_data[27]
-        plt.plot(target_array)
-        plt.title(path)
+        # plt.plot(target_array)
         plt.show()
 
         start_index, end_index = get_valid_indices(target_array, EDF_SAMP_RATE)
-
         t = process_target(target_array, start_index, end_index)
-        plt.plot(t)
-        plt.title(path)
-        plt.show()
-
 
         targets.append(t)
 
